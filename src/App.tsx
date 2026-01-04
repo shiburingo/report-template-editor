@@ -27,7 +27,7 @@ const toReiwa = (date: Date) => {
 };
 
 const getApiBase = () => {
-  const env = import.meta.env.VITE_TEMPLATE_API_BASE as string | undefined;
+  const env = (import.meta as any).env?.VITE_TEMPLATE_API_BASE as string | undefined;
   if (env && env.trim()) return env.trim();
   if (typeof window === 'undefined') return '';
   return window.location.pathname.startsWith('/report-template-editor/')
@@ -58,8 +58,10 @@ export function App() {
   const apiBase = useMemo(() => getApiBase(), []);
 
   const rangeLabel = template.text.rangeTemplate
-    .replaceAll('{start}', toReiwa(new Date('2026-01-01')))
-    .replaceAll('{end}', toReiwa(new Date('2026-01-03')));
+    .split('{start}')
+    .join(toReiwa(new Date('2026-01-01')))
+    .split('{end}')
+    .join(toReiwa(new Date('2026-01-03')));
   const createdAtLabel = `${toReiwa(new Date('2026-01-03'))} ${template.text.createdAtSuffix}`.trim();
 
   const applyTemplate = (next: RemittanceTemplate) => {
@@ -392,7 +394,7 @@ function RemittanceHalf({
           <tbody>
             {rows.slice(0, 7).map((row) => (
               <tr key={row.date}>
-                <td>{row.date.replaceAll('-', '/')}</td>
+                <td>{row.date.split('-').join('/')}</td>
                 <td>{row.cashSales.toLocaleString()}円</td>
               </tr>
             ))}
