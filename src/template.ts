@@ -1,4 +1,5 @@
 export const REMITTANCE_TEMPLATE_KEY = 'reportTemplates.remittance';
+export const SALES_DAILY_TEMPLATE_KEY = 'reportTemplates.salesDaily';
 
 export type RemittanceTemplate = {
   version: 1;
@@ -36,6 +37,39 @@ export type RemittanceTemplate = {
   };
 };
 
+export type SalesDailyTemplate = {
+  version: 1;
+  text: {
+    title: string;
+    metaTemplate: string;
+    receivableTemplate: string;
+    metricsTemplate: string;
+    sectionPayment: string;
+    sectionCategory: string;
+    sectionPrevious: string;
+    totalLabel: string;
+    noneLabel: string;
+    labels: {
+      cash: string;
+      credit: string;
+      mobile: string;
+      receivable: string;
+    };
+  };
+  layout: {
+    pageMarginMm: number;
+    titleFontPx: number;
+    metaFontPx: number;
+    sectionGapPx: number;
+    sectionBorderPx: number;
+    sectionPaddingPx: number;
+    labelFontPx: number;
+    rowFontPx: number;
+    rowSmallFontPx: number;
+    prevGridGapPx: number;
+  };
+};
+
 export const DEFAULT_REMITTANCE_TEMPLATE: RemittanceTemplate = {
   version: 1,
   text: {
@@ -69,6 +103,39 @@ export const DEFAULT_REMITTANCE_TEMPLATE: RemittanceTemplate = {
     lineWidthPx: 1,
     tableRowPaddingMm: 2,
     qrSizeMm: 20,
+  },
+};
+
+export const DEFAULT_SALES_DAILY_TEMPLATE: SalesDailyTemplate = {
+  version: 1,
+  text: {
+    title: '美祢市養鱒場売上日報',
+    metaTemplate: '日付: {date} / {fiscal}',
+    receivableTemplate: '売掛入金: {label}',
+    metricsTemplate: '{metrics}',
+    sectionPayment: '当日（支払い区分別）',
+    sectionCategory: '品目別（補助）',
+    sectionPrevious: '過去数日（支払い区分別）',
+    totalLabel: '計',
+    noneLabel: 'なし',
+    labels: {
+      cash: '現金',
+      credit: 'クレジット',
+      mobile: 'スマホ',
+      receivable: '売掛',
+    },
+  },
+  layout: {
+    pageMarginMm: 10,
+    titleFontPx: 20,
+    metaFontPx: 12,
+    sectionGapPx: 12,
+    sectionBorderPx: 1,
+    sectionPaddingPx: 10,
+    labelFontPx: 12,
+    rowFontPx: 16,
+    rowSmallFontPx: 11,
+    prevGridGapPx: 8,
   },
 };
 
@@ -112,6 +179,46 @@ export const normalizeRemittanceTemplate = (input: unknown): RemittanceTemplate 
       lineWidthPx: Number(layout.lineWidthPx ?? DEFAULT_REMITTANCE_TEMPLATE.layout.lineWidthPx),
       tableRowPaddingMm: Number(layout.tableRowPaddingMm ?? DEFAULT_REMITTANCE_TEMPLATE.layout.tableRowPaddingMm),
       qrSizeMm: Number(layout.qrSizeMm ?? DEFAULT_REMITTANCE_TEMPLATE.layout.qrSizeMm),
+    },
+  };
+};
+
+export const normalizeSalesDailyTemplate = (input: unknown): SalesDailyTemplate => {
+  if (!isObject(input)) return DEFAULT_SALES_DAILY_TEMPLATE;
+  const text = isObject(input.text) ? input.text : {};
+  const labels = isObject((text as any).labels) ? (text as any).labels : {};
+  const layout = isObject(input.layout) ? input.layout : {};
+
+  return {
+    version: 1,
+    text: {
+      title: String(text.title ?? DEFAULT_SALES_DAILY_TEMPLATE.text.title),
+      metaTemplate: String(text.metaTemplate ?? DEFAULT_SALES_DAILY_TEMPLATE.text.metaTemplate),
+      receivableTemplate: String(text.receivableTemplate ?? DEFAULT_SALES_DAILY_TEMPLATE.text.receivableTemplate),
+      metricsTemplate: String(text.metricsTemplate ?? DEFAULT_SALES_DAILY_TEMPLATE.text.metricsTemplate),
+      sectionPayment: String(text.sectionPayment ?? DEFAULT_SALES_DAILY_TEMPLATE.text.sectionPayment),
+      sectionCategory: String(text.sectionCategory ?? DEFAULT_SALES_DAILY_TEMPLATE.text.sectionCategory),
+      sectionPrevious: String(text.sectionPrevious ?? DEFAULT_SALES_DAILY_TEMPLATE.text.sectionPrevious),
+      totalLabel: String(text.totalLabel ?? DEFAULT_SALES_DAILY_TEMPLATE.text.totalLabel),
+      noneLabel: String(text.noneLabel ?? DEFAULT_SALES_DAILY_TEMPLATE.text.noneLabel),
+      labels: {
+        cash: String(labels.cash ?? DEFAULT_SALES_DAILY_TEMPLATE.text.labels.cash),
+        credit: String(labels.credit ?? DEFAULT_SALES_DAILY_TEMPLATE.text.labels.credit),
+        mobile: String(labels.mobile ?? DEFAULT_SALES_DAILY_TEMPLATE.text.labels.mobile),
+        receivable: String(labels.receivable ?? DEFAULT_SALES_DAILY_TEMPLATE.text.labels.receivable),
+      },
+    },
+    layout: {
+      pageMarginMm: Number(layout.pageMarginMm ?? DEFAULT_SALES_DAILY_TEMPLATE.layout.pageMarginMm),
+      titleFontPx: Number(layout.titleFontPx ?? DEFAULT_SALES_DAILY_TEMPLATE.layout.titleFontPx),
+      metaFontPx: Number(layout.metaFontPx ?? DEFAULT_SALES_DAILY_TEMPLATE.layout.metaFontPx),
+      sectionGapPx: Number(layout.sectionGapPx ?? DEFAULT_SALES_DAILY_TEMPLATE.layout.sectionGapPx),
+      sectionBorderPx: Number(layout.sectionBorderPx ?? DEFAULT_SALES_DAILY_TEMPLATE.layout.sectionBorderPx),
+      sectionPaddingPx: Number(layout.sectionPaddingPx ?? DEFAULT_SALES_DAILY_TEMPLATE.layout.sectionPaddingPx),
+      labelFontPx: Number(layout.labelFontPx ?? DEFAULT_SALES_DAILY_TEMPLATE.layout.labelFontPx),
+      rowFontPx: Number(layout.rowFontPx ?? DEFAULT_SALES_DAILY_TEMPLATE.layout.rowFontPx),
+      rowSmallFontPx: Number(layout.rowSmallFontPx ?? DEFAULT_SALES_DAILY_TEMPLATE.layout.rowSmallFontPx),
+      prevGridGapPx: Number(layout.prevGridGapPx ?? DEFAULT_SALES_DAILY_TEMPLATE.layout.prevGridGapPx),
     },
   };
 };

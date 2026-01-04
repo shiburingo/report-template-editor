@@ -386,11 +386,102 @@ body {
   top: 222.75mm;
 }
 
+.sales-daily-page {
+  width: 210mm;
+  height: 297mm;
+  background: white;
+  position: relative;
+  font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+  color: #111827;
+  transform: scale(0.85);
+  transform-origin: top center;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.15);
+}
+
+.sales-daily-content {
+  position: absolute;
+  inset: 0;
+  padding: var(--sr-page-margin, 10mm);
+  display: flex;
+  flex-direction: column;
+}
+
+.sales-daily-page .print-title {
+  font-size: var(--sr-title-size, 20px);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.sales-daily-page .print-meta {
+  font-size: var(--sr-meta-size, 12px);
+  margin-bottom: 6px;
+}
+
+.sales-daily-page .print-section {
+  margin-top: var(--sr-section-gap, 12px);
+  border: var(--sr-border-width, 1px) solid #111827;
+  padding: var(--sr-section-pad, 10px);
+}
+
+.sales-daily-page .print-section.print-category {
+  padding: calc(var(--sr-section-pad, 10px) - 2px);
+}
+
+.sales-daily-page .print-label {
+  font-size: var(--sr-label-size, 12px);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.sales-daily-page .print-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--sr-row-size, 16px);
+  padding: 2px 0;
+}
+
+.sales-daily-page .print-row-small {
+  font-size: var(--sr-row-small-size, 11px);
+}
+
+.sales-daily-page .print-prev-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--sr-prev-gap, 8px);
+}
+
+.sales-daily-page .prev-card {
+  border: var(--sr-border-width, 1px) solid #111827;
+  padding: 6px;
+  font-size: var(--sr-row-small-size, 11px);
+}
+
+.sales-daily-page .prev-date {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.sales-daily-page .row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  padding: 1px 0;
+}
+
+.sales-daily-page .prev-total {
+  margin-top: 4px;
+  text-align: right;
+  font-weight: 600;
+}
+
 @media (max-width: 1200px) {
   .app-main {
     grid-template-columns: 1fr;
   }
   .remittance-page {
     transform: scale(0.6);
+  }
+  .sales-daily-page {
+    transform: scale(0.7);
   }
 }
