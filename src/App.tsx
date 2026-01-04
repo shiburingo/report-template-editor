@@ -656,7 +656,7 @@ function SalesDailyPreview({
     return { category: cat.category, total };
   }).filter((cat) => cat.total !== 0);
 
-  const paymentRows = [
+  const paymentRows: Array<[string, number]> = [
     [template.text.labels.cash, sourceTotals.cash || 0],
     [template.text.labels.credit, sourceTotals.credit || 0],
     [template.text.labels.mobile, sourceTotals.mobile || 0],
@@ -735,7 +735,7 @@ function SalesDailyPreview({
                 },
                 { cash: 0, credit: 0, mobile: 0, receivable: 0 } as Record<string, number>
               );
-              const rows = [
+              const rows: Array<[string, number]> = [
                 [template.text.labels.cash, totals.cash || 0],
                 [template.text.labels.credit, totals.credit || 0],
                 [template.text.labels.mobile, totals.mobile || 0],
