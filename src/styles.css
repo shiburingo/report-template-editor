@@ -474,6 +474,138 @@ body {
   font-weight: 600;
 }
 
+.fv-report-page {
+  width: 210mm;
+  height: 297mm;
+  background: white;
+  position: relative;
+  font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+  color: #111827;
+  transform: scale(0.85);
+  transform-origin: top center;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.15);
+}
+
+.fv-report-content {
+  position: absolute;
+  inset: 0;
+  padding: var(--fv-page-margin-top) var(--fv-page-margin-side) var(--fv-page-margin-bottom) var(--fv-page-margin-side);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fv-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fv-org {
+  font-size: var(--fv-org-font);
+  font-weight: 600;
+  color: #475569;
+}
+
+.fv-title {
+  font-size: var(--fv-title-font);
+  font-weight: 700;
+}
+
+.fv-meta {
+  font-size: var(--fv-meta-font);
+  color: #334155;
+}
+
+.fv-badge {
+  display: inline-flex;
+  align-self: flex-start;
+  font-size: var(--fv-badge-font);
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #334155;
+}
+
+.fv-divider {
+  height: 1px;
+  background: #e2e8f0;
+  margin-bottom: var(--fv-header-gap);
+}
+
+.fv-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.fv-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px;
+  background: #f8fafc;
+}
+
+.fv-card-title {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.fv-card-body {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.fv-row {
+  display: flex;
+  justify-content: space-between;
+}
+
+.fv-block {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px;
+  background: #f8fafc;
+}
+
+.fv-block-title {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.fv-block-chart {
+  height: 60px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #e2e8f0 0%, #f1f5f9 100%);
+}
+
+.fv-table {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+  font-size: var(--fv-detail-font);
+}
+
+.fv-table-head,
+.fv-table-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  padding: var(--fv-detail-pad);
+}
+
+.fv-table-head {
+  background: #f1f5f9;
+  font-weight: 700;
+}
+
+.fv-table-row {
+  border-top: 1px solid #e2e8f0;
+}
+
 @media (max-width: 1200px) {
   .app-main {
     grid-template-columns: 1fr;
@@ -482,6 +614,9 @@ body {
     transform: scale(0.6);
   }
   .sales-daily-page {
+    transform: scale(0.7);
+  }
+  .fv-report-page {
     transform: scale(0.7);
   }
 }

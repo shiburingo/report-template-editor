@@ -1,11 +1,15 @@
 import { useMemo, useState } from 'react';
 import {
+  DEFAULT_FV_YEAR_COMPARISON_TEMPLATE,
   DEFAULT_SALES_DAILY_TEMPLATE,
   DEFAULT_REMITTANCE_TEMPLATE,
+  FV_YEAR_COMPARISON_TEMPLATE_KEY,
   SALES_DAILY_TEMPLATE_KEY,
+  normalizeForeignVisitorTemplate,
   normalizeRemittanceTemplate,
   normalizeSalesDailyTemplate,
   REMITTANCE_TEMPLATE_KEY,
+  type ForeignVisitorYearComparisonTemplate,
   type SalesDailyTemplate,
   type RemittanceTemplate,
 } from './template';
@@ -13,6 +17,7 @@ import {
 const TEMPLATE_LIST = [
   { id: 'remittance-slip', name: '売上金納付書', key: REMITTANCE_TEMPLATE_KEY },
   { id: 'sales-daily', name: '売上日報', key: SALES_DAILY_TEMPLATE_KEY },
+  { id: 'fv-year-comparison', name: 'インバウンド年別比較', key: FV_YEAR_COMPARISON_TEMPLATE_KEY },
 ];
 
 const sampleRows = [
@@ -62,6 +67,9 @@ const samplePreviousDays = [
   },
 ];
 
+const sampleComparisonYears = [2024, 2025];
+const sampleComparisonLabel = '2024 / 2025';
+
 const toReiwa = (date: Date) => {
   const reiwaStart = new Date('2019-05-01T00:00:00');
   let eraYear = date.getFullYear() - 2018;
@@ -78,6 +86,15 @@ const getApiBase = () => {
   if (typeof window === 'undefined') return '';
   return window.location.pathname.startsWith('/report-template-editor/')
     ? '/mine-trout-cash-api'
+    : '';
+};
+
+const getForeignVisitorApiBase = () => {
+  const env = (import.meta as any).env?.VITE_FV_TEMPLATE_API_BASE as string | undefined;
+  if (env && env.trim()) return env.trim();
+  if (typeof window === 'undefined') return '';
+  return window.location.pathname.startsWith('/report-template-editor/')
+    ? '/api'
     : '';
 };
 
@@ -101,6 +118,16 @@ const loadLocalSalesDailyTemplate = () => {
   }
 };
 
+const loadLocalForeignVisitorTemplate = () => {
+  try {
+    const raw = localStorage.getItem(FV_YEAR_COMPARISON_TEMPLATE_KEY);
+    if (!raw) return DEFAULT_FV_YEAR_COMPARISON_TEMPLATE;
+    return normalizeForeignVisitorTemplate(JSON.parse(raw));
+  } catch {
+    return DEFAULT_FV_YEAR_COMPARISON_TEMPLATE;
+  }
+};
+
 const saveLocalRemittanceTemplate = (template: RemittanceTemplate) => {
   localStorage.setItem(REMITTANCE_TEMPLATE_KEY, JSON.stringify(template));
 };
@@ -109,16 +136,26 @@ const saveLocalSalesDailyTemplate = (template: SalesDailyTemplate) => {
   localStorage.setItem(SALES_DAILY_TEMPLATE_KEY, JSON.stringify(template));
 };
 
+const saveLocalForeignVisitorTemplate = (template: ForeignVisitorYearComparisonTemplate) => {
+  localStorage.setItem(FV_YEAR_COMPARISON_TEMPLATE_KEY, JSON.stringify(template));
+};
+
 export function App() {
   const [selectedTemplateId, setSelectedTemplateId] = useState(TEMPLATE_LIST[0].id);
   const [remittanceTemplate, setRemittanceTemplate] = useState<RemittanceTemplate>(() => loadLocalRemittanceTemplate());
   const [salesDailyTemplate, setSalesDailyTemplate] = useState<SalesDailyTemplate>(() => loadLocalSalesDailyTemplate());
+  const [foreignVisitorTemplate, setForeignVisitorTemplate] =
+    useState<ForeignVisitorYearComparisonTemplate>(() => loadLocalForeignVisitorTemplate());
   const [status, setStatus] = useState<string>('');
   const [busy, setBusy] = useState(false);
 
   const apiBase = useMemo(() => getApiBase(), []);
+  const fvApiBase = useMemo(() => getForeignVisitorApiBase(), []);
   const isRemittance = selectedTemplateId === 'remittance-slip';
+  const isSalesDaily = selectedTemplateId === 'sales-daily';
+  const isForeignVisitor = selectedTemplateId === 'fv-year-comparison';
   const activeTemplateMeta = TEMPLATE_LIST.find((item) => item.id === selectedTemplateId);
+  const currentApiBase = isForeignVisitor ? fvApiBase : apiBase;
 
   const rangeLabel = remittanceTemplate.text.rangeTemplate
     .split('{start}')
@@ -135,6 +172,11 @@ export function App() {
   const applySalesDailyTemplate = (next: SalesDailyTemplate) => {
     setSalesDailyTemplate(next);
     saveLocalSalesDailyTemplate(next);
+  };
+
+  const applyForeignVisitorTemplate = (next: ForeignVisitorYearComparisonTemplate) => {
+    setForeignVisitorTemplate(next);
+    saveLocalForeignVisitorTemplate(next);
   };
 
   const updateRemittanceText = (key: keyof RemittanceTemplate['text'], value: string) => {
@@ -172,16 +214,40 @@ export function App() {
     });
   };
 
+  const updateForeignVisitorText = (
+    key: keyof ForeignVisitorYearComparisonTemplate['text'],
+    value: string
+  ) => {
+    applyForeignVisitorTemplate({
+      ...foreignVisitorTemplate,
+      text: { ...foreignVisitorTemplate.text, [key]: value },
+    });
+  };
+
+  const updateForeignVisitorLayout = (
+    key: keyof ForeignVisitorYearComparisonTemplate['layout'],
+    value: number
+  ) => {
+    applyForeignVisitorTemplate({
+      ...foreignVisitorTemplate,
+      layout: { ...foreignVisitorTemplate.layout, [key]: value },
+    });
+  };
+
   const loadFromServer = async () => {
-    if (!apiBase) {
+    if (!currentApiBase) {
       setStatus('API未設定のため読み込みできません。');
       return;
     }
     setBusy(true);
     setStatus('サーバーから読み込み中...');
     try {
-      const templateKey = isRemittance ? REMITTANCE_TEMPLATE_KEY : SALES_DAILY_TEMPLATE_KEY;
-      const res = await fetch(`${apiBase}/api/kv/${encodeURIComponent(templateKey)}`);
+      const templateKey = isRemittance
+        ? REMITTANCE_TEMPLATE_KEY
+        : isSalesDaily
+        ? SALES_DAILY_TEMPLATE_KEY
+        : FV_YEAR_COMPARISON_TEMPLATE_KEY;
+      const res = await fetch(`${currentApiBase}/api/kv/${encodeURIComponent(templateKey)}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = (await res.json()) as { ok: boolean; value: unknown };
       if (isRemittance) {
@@ -192,12 +258,20 @@ export function App() {
           applyRemittanceTemplate(normalizeRemittanceTemplate(json.value));
           setStatus('サーバーのテンプレートを読み込みました。');
         }
-      } else {
+      } else if (isSalesDaily) {
         if (!json.value) {
           applySalesDailyTemplate(DEFAULT_SALES_DAILY_TEMPLATE);
           setStatus('サーバーにはテンプレートが未登録でした。既定値を使用します。');
         } else {
           applySalesDailyTemplate(normalizeSalesDailyTemplate(json.value));
+          setStatus('サーバーのテンプレートを読み込みました。');
+        }
+      } else {
+        if (!json.value) {
+          applyForeignVisitorTemplate(DEFAULT_FV_YEAR_COMPARISON_TEMPLATE);
+          setStatus('サーバーにはテンプレートが未登録でした。既定値を使用します。');
+        } else {
+          applyForeignVisitorTemplate(normalizeForeignVisitorTemplate(json.value));
           setStatus('サーバーのテンプレートを読み込みました。');
         }
       }
@@ -209,16 +283,24 @@ export function App() {
   };
 
   const saveToServer = async () => {
-    if (!apiBase) {
+    if (!currentApiBase) {
       setStatus('API未設定のため保存できません。');
       return;
     }
     setBusy(true);
     setStatus('サーバーへ保存中...');
     try {
-      const templateKey = isRemittance ? REMITTANCE_TEMPLATE_KEY : SALES_DAILY_TEMPLATE_KEY;
-      const payload = isRemittance ? remittanceTemplate : salesDailyTemplate;
-      const res = await fetch(`${apiBase}/api/kv/${encodeURIComponent(templateKey)}`, {
+      const templateKey = isRemittance
+        ? REMITTANCE_TEMPLATE_KEY
+        : isSalesDaily
+        ? SALES_DAILY_TEMPLATE_KEY
+        : FV_YEAR_COMPARISON_TEMPLATE_KEY;
+      const payload = isRemittance
+        ? remittanceTemplate
+        : isSalesDaily
+        ? salesDailyTemplate
+        : foreignVisitorTemplate;
+      const res = await fetch(`${currentApiBase}/api/kv/${encodeURIComponent(templateKey)}`, {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(payload),
@@ -235,8 +317,10 @@ export function App() {
   const resetTemplate = () => {
     if (isRemittance) {
       applyRemittanceTemplate(DEFAULT_REMITTANCE_TEMPLATE);
-    } else {
+    } else if (isSalesDaily) {
       applySalesDailyTemplate(DEFAULT_SALES_DAILY_TEMPLATE);
+    } else {
+      applyForeignVisitorTemplate(DEFAULT_FV_YEAR_COMPARISON_TEMPLATE);
     }
     setStatus('既定値に戻しました。');
   };
@@ -268,15 +352,23 @@ export function App() {
               >
                 <div className="list-title">{item.name}</div>
                 <div className="list-meta">
-                  {item.id === 'remittance-slip' ? 'sales-management-system' : 'sales-report'}
+                  {item.id === 'remittance-slip'
+                    ? 'sales-management-system'
+                    : item.id === 'sales-daily'
+                    ? 'sales-report'
+                    : 'foreign-visitor-system'}
                 </div>
               </button>
             ))}
           </div>
           <div className="helper">
             <div className="helper-title">接続先</div>
-            <div className="helper-value">{apiBase || '未設定'}</div>
-            <div className="helper-note">保存は mine-trout-cash のKVに反映されます。</div>
+            <div className="helper-value">{currentApiBase || '未設定'}</div>
+            <div className="helper-note">
+              {isForeignVisitor
+                ? '保存は foreign-visitor-system のKVに反映されます。'
+                : '保存は mine-trout-cash のKVに反映されます。'}
+            </div>
           </div>
         </aside>
 
@@ -290,12 +382,14 @@ export function App() {
                 createdAtLabel={createdAtLabel}
                 rows={sampleRows}
               />
-            ) : (
+            ) : isSalesDaily ? (
               <SalesDailyPreview
                 template={salesDailyTemplate}
                 target={sampleDailyData}
                 previous={samplePreviousDays}
               />
+            ) : (
+              <ForeignVisitorPreview template={foreignVisitorTemplate} />
             )}
           </div>
         </section>
@@ -368,7 +462,7 @@ export function App() {
                 </div>
               </section>
             </>
-          ) : (
+          ) : isSalesDaily ? (
             <>
               <section className="section">
                 <div className="section-title">文言</div>
@@ -428,6 +522,45 @@ export function App() {
                   <NumberField label="行文字 (px)" value={salesDailyTemplate.layout.rowFontPx} onChange={(v) => updateSalesDailyLayout('rowFontPx', v)} />
                   <NumberField label="小行文字 (px)" value={salesDailyTemplate.layout.rowSmallFontPx} onChange={(v) => updateSalesDailyLayout('rowSmallFontPx', v)} />
                   <NumberField label="過去一覧間隔 (px)" value={salesDailyTemplate.layout.prevGridGapPx} onChange={(v) => updateSalesDailyLayout('prevGridGapPx', v)} />
+                </div>
+              </section>
+            </>
+          ) : (
+            <>
+              <section className="section">
+                <div className="section-title">文言</div>
+                <div className="grid">
+                  <Field label="事業所名">
+                    <input value={foreignVisitorTemplate.text.orgName} onChange={(e) => updateForeignVisitorText('orgName', e.target.value)} />
+                  </Field>
+                  <Field label="帳票タイトル">
+                    <input value={foreignVisitorTemplate.text.docTitle} onChange={(e) => updateForeignVisitorText('docTitle', e.target.value)} />
+                  </Field>
+                  <Field label="対象年ラベル">
+                    <input value={foreignVisitorTemplate.text.targetYearsLabel} onChange={(e) => updateForeignVisitorText('targetYearsLabel', e.target.value)} />
+                  </Field>
+                  <Field label="バッジラベル">
+                    <input value={foreignVisitorTemplate.text.badgeLabel} onChange={(e) => updateForeignVisitorText('badgeLabel', e.target.value)} />
+                  </Field>
+                  <Field label="印刷日時ラベル">
+                    <input value={foreignVisitorTemplate.text.printedAtLabel} onChange={(e) => updateForeignVisitorText('printedAtLabel', e.target.value)} />
+                  </Field>
+                </div>
+              </section>
+
+              <section className="section">
+                <div className="section-title">レイアウト</div>
+                <div className="grid">
+                  <NumberField label="上余白 (mm)" value={foreignVisitorTemplate.layout.pageMarginTopMm} onChange={(v) => updateForeignVisitorLayout('pageMarginTopMm', v)} />
+                  <NumberField label="左右余白 (mm)" value={foreignVisitorTemplate.layout.pageMarginSideMm} onChange={(v) => updateForeignVisitorLayout('pageMarginSideMm', v)} />
+                  <NumberField label="下余白 (mm)" value={foreignVisitorTemplate.layout.pageMarginBottomMm} onChange={(v) => updateForeignVisitorLayout('pageMarginBottomMm', v)} />
+                  <NumberField label="事業所名 (px)" value={foreignVisitorTemplate.layout.orgFontPx} onChange={(v) => updateForeignVisitorLayout('orgFontPx', v)} />
+                  <NumberField label="タイトル (px)" value={foreignVisitorTemplate.layout.titleFontPx} onChange={(v) => updateForeignVisitorLayout('titleFontPx', v)} />
+                  <NumberField label="メタ (px)" value={foreignVisitorTemplate.layout.metaFontPx} onChange={(v) => updateForeignVisitorLayout('metaFontPx', v)} />
+                  <NumberField label="バッジ (px)" value={foreignVisitorTemplate.layout.badgeFontPx} onChange={(v) => updateForeignVisitorLayout('badgeFontPx', v)} />
+                  <NumberField label="ヘッダ余白 (px)" value={foreignVisitorTemplate.layout.headerGapPx} onChange={(v) => updateForeignVisitorLayout('headerGapPx', v)} />
+                  <NumberField label="詳細表文字 (px)" value={foreignVisitorTemplate.layout.detailFontPx} onChange={(v) => updateForeignVisitorLayout('detailFontPx', v)} />
+                  <NumberField label="詳細表余白 (px)" value={foreignVisitorTemplate.layout.detailPaddingPx} onChange={(v) => updateForeignVisitorLayout('detailPaddingPx', v)} />
                 </div>
               </section>
             </>
@@ -756,6 +889,87 @@ function SalesDailyPreview({
               );
             })}
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ForeignVisitorPreview({
+  template,
+}: {
+  template: ForeignVisitorYearComparisonTemplate;
+}) {
+  const styleVars = {
+    '--fv-page-margin-top': `${template.layout.pageMarginTopMm}mm`,
+    '--fv-page-margin-side': `${template.layout.pageMarginSideMm}mm`,
+    '--fv-page-margin-bottom': `${template.layout.pageMarginBottomMm}mm`,
+    '--fv-org-font': `${template.layout.orgFontPx}px`,
+    '--fv-title-font': `${template.layout.titleFontPx}px`,
+    '--fv-meta-font': `${template.layout.metaFontPx}px`,
+    '--fv-badge-font': `${template.layout.badgeFontPx}px`,
+    '--fv-header-gap': `${template.layout.headerGapPx}px`,
+    '--fv-detail-font': `${template.layout.detailFontPx}px`,
+    '--fv-detail-pad': `${template.layout.detailPaddingPx}px`,
+  } as React.CSSProperties;
+
+  return (
+    <div className="fv-report-page" style={styleVars}>
+      <div className="fv-report-content">
+        <div className="fv-header">
+          <div>
+            <div className="fv-org">{template.text.orgName}</div>
+            <div className="fv-title">{template.text.docTitle}</div>
+            <div className="fv-meta">
+              {template.text.targetYearsLabel}：{sampleComparisonLabel}
+            </div>
+          </div>
+          <div className="fv-badge">
+            {template.text.badgeLabel}
+          </div>
+          <div className="fv-meta">
+            {template.text.printedAtLabel}：2026-01-03 09:00
+          </div>
+        </div>
+        <div className="fv-divider" />
+        <div className="fv-grid">
+          {sampleComparisonYears.map((y) => (
+            <div key={y} className="fv-card">
+              <div className="fv-card-title">{y}年</div>
+              <div className="fv-card-body">
+                <div className="fv-row">
+                  <span>訪問者数</span>
+                  <span>3,240名</span>
+                </div>
+                <div className="fv-row">
+                  <span>件数</span>
+                  <span>210件</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="fv-block">
+          <div className="fv-block-title">月別訪問者数の推移</div>
+          <div className="fv-block-chart" />
+        </div>
+        <div className="fv-block">
+          <div className="fv-block-title">国・地域別訪問者内訳</div>
+          <div className="fv-block-chart" />
+        </div>
+        <div className="fv-table">
+          <div className="fv-table-head">
+            <span>月</span>
+            <span>2024年</span>
+            <span>2025年</span>
+          </div>
+          {[1, 2, 3].map((m) => (
+            <div key={m} className="fv-table-row">
+              <span>{m}月</span>
+              <span>120</span>
+              <span>160</span>
+            </div>
+          ))}
         </div>
       </div>
     </div>

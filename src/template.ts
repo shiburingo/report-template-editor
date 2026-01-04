@@ -1,5 +1,6 @@
 export const REMITTANCE_TEMPLATE_KEY = 'reportTemplates.remittance';
 export const SALES_DAILY_TEMPLATE_KEY = 'reportTemplates.salesDaily';
+export const FV_YEAR_COMPARISON_TEMPLATE_KEY = 'reportTemplates.foreignVisitorYearComparison';
 
 export type RemittanceTemplate = {
   version: 1;
@@ -70,6 +71,29 @@ export type SalesDailyTemplate = {
   };
 };
 
+export type ForeignVisitorYearComparisonTemplate = {
+  version: 1;
+  text: {
+    orgName: string;
+    docTitle: string;
+    targetYearsLabel: string;
+    badgeLabel: string;
+    printedAtLabel: string;
+  };
+  layout: {
+    pageMarginTopMm: number;
+    pageMarginSideMm: number;
+    pageMarginBottomMm: number;
+    orgFontPx: number;
+    titleFontPx: number;
+    metaFontPx: number;
+    badgeFontPx: number;
+    headerGapPx: number;
+    detailFontPx: number;
+    detailPaddingPx: number;
+  };
+};
+
 export const DEFAULT_REMITTANCE_TEMPLATE: RemittanceTemplate = {
   version: 1,
   text: {
@@ -136,6 +160,29 @@ export const DEFAULT_SALES_DAILY_TEMPLATE: SalesDailyTemplate = {
     rowFontPx: 16,
     rowSmallFontPx: 11,
     prevGridGapPx: 8,
+  },
+};
+
+export const DEFAULT_FV_YEAR_COMPARISON_TEMPLATE: ForeignVisitorYearComparisonTemplate = {
+  version: 1,
+  text: {
+    orgName: '美祢市養鱒場',
+    docTitle: 'インバウンド記録（年別比較）',
+    targetYearsLabel: '対象年',
+    badgeLabel: '提出用参考資料',
+    printedAtLabel: '印刷日時',
+  },
+  layout: {
+    pageMarginTopMm: 12,
+    pageMarginSideMm: 12,
+    pageMarginBottomMm: 16,
+    orgFontPx: 11,
+    titleFontPx: 20,
+    metaFontPx: 11,
+    badgeFontPx: 11,
+    headerGapPx: 10,
+    detailFontPx: 10,
+    detailPaddingPx: 5,
   },
 };
 
@@ -219,6 +266,34 @@ export const normalizeSalesDailyTemplate = (input: unknown): SalesDailyTemplate 
       rowFontPx: Number(layout.rowFontPx ?? DEFAULT_SALES_DAILY_TEMPLATE.layout.rowFontPx),
       rowSmallFontPx: Number(layout.rowSmallFontPx ?? DEFAULT_SALES_DAILY_TEMPLATE.layout.rowSmallFontPx),
       prevGridGapPx: Number(layout.prevGridGapPx ?? DEFAULT_SALES_DAILY_TEMPLATE.layout.prevGridGapPx),
+    },
+  };
+};
+
+export const normalizeForeignVisitorTemplate = (input: unknown): ForeignVisitorYearComparisonTemplate => {
+  if (!isObject(input)) return DEFAULT_FV_YEAR_COMPARISON_TEMPLATE;
+  const text = isObject(input.text) ? input.text : {};
+  const layout = isObject(input.layout) ? input.layout : {};
+  return {
+    version: 1,
+    text: {
+      orgName: String(text.orgName ?? DEFAULT_FV_YEAR_COMPARISON_TEMPLATE.text.orgName),
+      docTitle: String(text.docTitle ?? DEFAULT_FV_YEAR_COMPARISON_TEMPLATE.text.docTitle),
+      targetYearsLabel: String(text.targetYearsLabel ?? DEFAULT_FV_YEAR_COMPARISON_TEMPLATE.text.targetYearsLabel),
+      badgeLabel: String(text.badgeLabel ?? DEFAULT_FV_YEAR_COMPARISON_TEMPLATE.text.badgeLabel),
+      printedAtLabel: String(text.printedAtLabel ?? DEFAULT_FV_YEAR_COMPARISON_TEMPLATE.text.printedAtLabel),
+    },
+    layout: {
+      pageMarginTopMm: Number(layout.pageMarginTopMm ?? DEFAULT_FV_YEAR_COMPARISON_TEMPLATE.layout.pageMarginTopMm),
+      pageMarginSideMm: Number(layout.pageMarginSideMm ?? DEFAULT_FV_YEAR_COMPARISON_TEMPLATE.layout.pageMarginSideMm),
+      pageMarginBottomMm: Number(layout.pageMarginBottomMm ?? DEFAULT_FV_YEAR_COMPARISON_TEMPLATE.layout.pageMarginBottomMm),
+      orgFontPx: Number(layout.orgFontPx ?? DEFAULT_FV_YEAR_COMPARISON_TEMPLATE.layout.orgFontPx),
+      titleFontPx: Number(layout.titleFontPx ?? DEFAULT_FV_YEAR_COMPARISON_TEMPLATE.layout.titleFontPx),
+      metaFontPx: Number(layout.metaFontPx ?? DEFAULT_FV_YEAR_COMPARISON_TEMPLATE.layout.metaFontPx),
+      badgeFontPx: Number(layout.badgeFontPx ?? DEFAULT_FV_YEAR_COMPARISON_TEMPLATE.layout.badgeFontPx),
+      headerGapPx: Number(layout.headerGapPx ?? DEFAULT_FV_YEAR_COMPARISON_TEMPLATE.layout.headerGapPx),
+      detailFontPx: Number(layout.detailFontPx ?? DEFAULT_FV_YEAR_COMPARISON_TEMPLATE.layout.detailFontPx),
+      detailPaddingPx: Number(layout.detailPaddingPx ?? DEFAULT_FV_YEAR_COMPARISON_TEMPLATE.layout.detailPaddingPx),
     },
   };
 };
