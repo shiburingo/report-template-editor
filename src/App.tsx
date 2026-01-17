@@ -3,9 +3,12 @@ import {
   DEFAULT_FV_YEAR_COMPARISON_TEMPLATE,
   DEFAULT_SALES_DAILY_TEMPLATE,
   DEFAULT_REMITTANCE_TEMPLATE,
+  DEFAULT_REMITTANCE_AR_TEMPLATE,
   FV_YEAR_COMPARISON_TEMPLATE_KEY,
   SALES_DAILY_TEMPLATE_KEY,
+  REMITTANCE_AR_TEMPLATE_KEY,
   normalizeForeignVisitorTemplate,
+  normalizeRemittanceArTemplate,
   normalizeRemittanceTemplate,
   normalizeSalesDailyTemplate,
   REMITTANCE_TEMPLATE_KEY,
@@ -16,6 +19,7 @@ import {
 
 const TEMPLATE_LIST = [
   { id: 'remittance-slip', name: '売上金納付書', key: REMITTANCE_TEMPLATE_KEY },
+  { id: 'remittance-ar', name: '売掛金納付書', key: REMITTANCE_AR_TEMPLATE_KEY },
   { id: 'sales-daily', name: '売上日報', key: SALES_DAILY_TEMPLATE_KEY },
   { id: 'fv-year-comparison', name: 'インバウンド年別比較', key: FV_YEAR_COMPARISON_TEMPLATE_KEY },
 ];
@@ -80,6 +84,16 @@ const toReiwa = (date: Date) => {
   return `令和${eraYear}年${date.getMonth() + 1}月${date.getDate()}日`;
 };
 
+const toReiwaMonth = (date: Date) => {
+  const reiwaStart = new Date('2019-05-01T00:00:00');
+  let eraYear = date.getFullYear() - 2018;
+  if (date < reiwaStart) {
+    eraYear = date.getFullYear() - 1988;
+    return `平成${eraYear}年${date.getMonth() + 1}月`;
+  }
+  return `令和${eraYear}年${date.getMonth() + 1}月`;
+};
+
 const getApiBase = () => {
   const env = (import.meta as any).env?.VITE_TEMPLATE_API_BASE as string | undefined;
   if (env && env.trim()) return env.trim();
@@ -108,6 +122,16 @@ const loadLocalRemittanceTemplate = () => {
   }
 };
 
+const loadLocalRemittanceArTemplate = () => {
+  try {
+    const raw = localStorage.getItem(REMITTANCE_AR_TEMPLATE_KEY);
+    if (!raw) return DEFAULT_REMITTANCE_AR_TEMPLATE;
+    return normalizeRemittanceArTemplate(JSON.parse(raw));
+  } catch {
+    return DEFAULT_REMITTANCE_AR_TEMPLATE;
+  }
+};
+
 const loadLocalSalesDailyTemplate = () => {
   try {
     const raw = localStorage.getItem(SALES_DAILY_TEMPLATE_KEY);
@@ -132,6 +156,10 @@ const saveLocalRemittanceTemplate = (template: RemittanceTemplate) => {
   localStorage.setItem(REMITTANCE_TEMPLATE_KEY, JSON.stringify(template));
 };
 
+const saveLocalRemittanceArTemplate = (template: RemittanceTemplate) => {
+  localStorage.setItem(REMITTANCE_AR_TEMPLATE_KEY, JSON.stringify(template));
+};
+
 const saveLocalSalesDailyTemplate = (template: SalesDailyTemplate) => {
   localStorage.setItem(SALES_DAILY_TEMPLATE_KEY, JSON.stringify(template));
 };
@@ -143,6 +171,8 @@ const saveLocalForeignVisitorTemplate = (template: ForeignVisitorYearComparisonT
 export function App() {
   const [selectedTemplateId, setSelectedTemplateId] = useState(TEMPLATE_LIST[0].id);
   const [remittanceTemplate, setRemittanceTemplate] = useState<RemittanceTemplate>(() => loadLocalRemittanceTemplate());
+  const [remittanceArTemplate, setRemittanceArTemplate] =
+    useState<RemittanceTemplate>(() => loadLocalRemittanceArTemplate());
   const [salesDailyTemplate, setSalesDailyTemplate] = useState<SalesDailyTemplate>(() => loadLocalSalesDailyTemplate());
   const [foreignVisitorTemplate, setForeignVisitorTemplate] =
     useState<ForeignVisitorYearComparisonTemplate>(() => loadLocalForeignVisitorTemplate());
@@ -151,20 +181,30 @@ export function App() {
 
   const apiBase = useMemo(() => getApiBase(), []);
   const fvApiBase = useMemo(() => getForeignVisitorApiBase(), []);
-  const isRemittance = selectedTemplateId === 'remittance-slip';
+  const isRemittanceSales = selectedTemplateId === 'remittance-slip';
+  const isRemittanceAr = selectedTemplateId === 'remittance-ar';
+  const isRemittance = isRemittanceSales || isRemittanceAr;
   const isSalesDaily = selectedTemplateId === 'sales-daily';
   const isForeignVisitor = selectedTemplateId === 'fv-year-comparison';
   const activeTemplateMeta = TEMPLATE_LIST.find((item) => item.id === selectedTemplateId);
   const currentApiBase = isForeignVisitor ? fvApiBase : apiBase;
 
-  const rangeLabel = remittanceTemplate.text.rangeTemplate
+  const activeRemittanceTemplate = isRemittanceAr ? remittanceArTemplate : remittanceTemplate;
+  const remittanceStart = isRemittanceAr ? toReiwaMonth(new Date('2026-01-01')) : toReiwa(new Date('2026-01-01'));
+  const remittanceEnd = isRemittanceAr ? toReiwaMonth(new Date('2026-01-03')) : toReiwa(new Date('2026-01-03'));
+  const rangeLabel = activeRemittanceTemplate.text.rangeTemplate
     .split('{start}')
-    .join(toReiwa(new Date('2026-01-01')))
+    .join(remittanceStart)
     .split('{end}')
-    .join(toReiwa(new Date('2026-01-03')));
-  const createdAtLabel = `${toReiwa(new Date('2026-01-03'))} ${remittanceTemplate.text.createdAtSuffix}`.trim();
+    .join(remittanceEnd);
+  const createdAtLabel = `${toReiwa(new Date('2026-01-03'))} ${activeRemittanceTemplate.text.createdAtSuffix}`.trim();
 
   const applyRemittanceTemplate = (next: RemittanceTemplate) => {
+    if (isRemittanceAr) {
+      setRemittanceArTemplate(next);
+      saveLocalRemittanceArTemplate(next);
+      return;
+    }
     setRemittanceTemplate(next);
     saveLocalRemittanceTemplate(next);
   };
@@ -181,15 +221,15 @@ export function App() {
 
   const updateRemittanceText = (key: keyof RemittanceTemplate['text'], value: string) => {
     applyRemittanceTemplate({
-      ...remittanceTemplate,
-      text: { ...remittanceTemplate.text, [key]: value },
+      ...activeRemittanceTemplate,
+      text: { ...activeRemittanceTemplate.text, [key]: value },
     });
   };
 
   const updateRemittanceLayout = (key: keyof RemittanceTemplate['layout'], value: number) => {
     applyRemittanceTemplate({
-      ...remittanceTemplate,
-      layout: { ...remittanceTemplate.layout, [key]: value },
+      ...activeRemittanceTemplate,
+      layout: { ...activeRemittanceTemplate.layout, [key]: value },
     });
   };
 
@@ -243,7 +283,7 @@ export function App() {
     setStatus('サーバーから読み込み中...');
     try {
       const templateKey = isRemittance
-        ? REMITTANCE_TEMPLATE_KEY
+        ? (isRemittanceAr ? REMITTANCE_AR_TEMPLATE_KEY : REMITTANCE_TEMPLATE_KEY)
         : isSalesDaily
         ? SALES_DAILY_TEMPLATE_KEY
         : FV_YEAR_COMPARISON_TEMPLATE_KEY;
@@ -252,10 +292,12 @@ export function App() {
       const json = (await res.json()) as { ok: boolean; value: unknown };
       if (isRemittance) {
         if (!json.value) {
-          applyRemittanceTemplate(DEFAULT_REMITTANCE_TEMPLATE);
+          applyRemittanceTemplate(isRemittanceAr ? DEFAULT_REMITTANCE_AR_TEMPLATE : DEFAULT_REMITTANCE_TEMPLATE);
           setStatus('サーバーにはテンプレートが未登録でした。既定値を使用します。');
         } else {
-          applyRemittanceTemplate(normalizeRemittanceTemplate(json.value));
+          applyRemittanceTemplate(
+            isRemittanceAr ? normalizeRemittanceArTemplate(json.value) : normalizeRemittanceTemplate(json.value)
+          );
           setStatus('サーバーのテンプレートを読み込みました。');
         }
       } else if (isSalesDaily) {
@@ -291,12 +333,12 @@ export function App() {
     setStatus('サーバーへ保存中...');
     try {
       const templateKey = isRemittance
-        ? REMITTANCE_TEMPLATE_KEY
+        ? (isRemittanceAr ? REMITTANCE_AR_TEMPLATE_KEY : REMITTANCE_TEMPLATE_KEY)
         : isSalesDaily
         ? SALES_DAILY_TEMPLATE_KEY
         : FV_YEAR_COMPARISON_TEMPLATE_KEY;
       const payload = isRemittance
-        ? remittanceTemplate
+        ? activeRemittanceTemplate
         : isSalesDaily
         ? salesDailyTemplate
         : foreignVisitorTemplate;
@@ -316,7 +358,7 @@ export function App() {
 
   const resetTemplate = () => {
     if (isRemittance) {
-      applyRemittanceTemplate(DEFAULT_REMITTANCE_TEMPLATE);
+      applyRemittanceTemplate(isRemittanceAr ? DEFAULT_REMITTANCE_AR_TEMPLATE : DEFAULT_REMITTANCE_TEMPLATE);
     } else if (isSalesDaily) {
       applySalesDailyTemplate(DEFAULT_SALES_DAILY_TEMPLATE);
     } else {
@@ -352,7 +394,7 @@ export function App() {
               >
                 <div className="list-title">{item.name}</div>
                 <div className="list-meta">
-                  {item.id === 'remittance-slip'
+                  {item.id === 'remittance-slip' || item.id === 'remittance-ar'
                     ? 'sales-management-system'
                     : item.id === 'sales-daily'
                     ? 'sales-report'
@@ -377,7 +419,7 @@ export function App() {
           <div className="preview-wrap">
             {isRemittance ? (
               <RemittancePreview
-                template={remittanceTemplate}
+                template={activeRemittanceTemplate}
                 rangeLabel={rangeLabel}
                 createdAtLabel={createdAtLabel}
                 rows={sampleRows}
@@ -404,37 +446,37 @@ export function App() {
                 <div className="section-title">文言</div>
                 <div className="grid">
                   <Field label="帳票タイトル">
-                    <input value={remittanceTemplate.text.docTitle} onChange={(e) => updateRemittanceText('docTitle', e.target.value)} />
+                    <input value={activeRemittanceTemplate.text.docTitle} onChange={(e) => updateRemittanceText('docTitle', e.target.value)} />
                   </Field>
                   <Field label="明細タイトル">
-                    <input value={remittanceTemplate.text.detailTitle} onChange={(e) => updateRemittanceText('detailTitle', e.target.value)} />
+                    <input value={activeRemittanceTemplate.text.detailTitle} onChange={(e) => updateRemittanceText('detailTitle', e.target.value)} />
                   </Field>
                   <Field label="上段ラベル">
-                    <input value={remittanceTemplate.text.copyLabelTop} onChange={(e) => updateRemittanceText('copyLabelTop', e.target.value)} />
+                    <input value={activeRemittanceTemplate.text.copyLabelTop} onChange={(e) => updateRemittanceText('copyLabelTop', e.target.value)} />
                   </Field>
                   <Field label="下段ラベル">
-                    <input value={remittanceTemplate.text.copyLabelBottom} onChange={(e) => updateRemittanceText('copyLabelBottom', e.target.value)} />
+                    <input value={activeRemittanceTemplate.text.copyLabelBottom} onChange={(e) => updateRemittanceText('copyLabelBottom', e.target.value)} />
                   </Field>
                   <Field label="表: 日付">
-                    <input value={remittanceTemplate.text.tableDateHeader} onChange={(e) => updateRemittanceText('tableDateHeader', e.target.value)} />
+                    <input value={activeRemittanceTemplate.text.tableDateHeader} onChange={(e) => updateRemittanceText('tableDateHeader', e.target.value)} />
                   </Field>
                   <Field label="表: 現金売上">
-                    <input value={remittanceTemplate.text.tableCashHeader} onChange={(e) => updateRemittanceText('tableCashHeader', e.target.value)} />
+                    <input value={activeRemittanceTemplate.text.tableCashHeader} onChange={(e) => updateRemittanceText('tableCashHeader', e.target.value)} />
                   </Field>
                   <Field label="合計ラベル">
-                    <input value={remittanceTemplate.text.totalLabel} onChange={(e) => updateRemittanceText('totalLabel', e.target.value)} />
+                    <input value={activeRemittanceTemplate.text.totalLabel} onChange={(e) => updateRemittanceText('totalLabel', e.target.value)} />
                   </Field>
                   <Field label="署名欄">
-                    <input value={remittanceTemplate.text.signatureLabel} onChange={(e) => updateRemittanceText('signatureLabel', e.target.value)} />
+                    <input value={activeRemittanceTemplate.text.signatureLabel} onChange={(e) => updateRemittanceText('signatureLabel', e.target.value)} />
                   </Field>
                   <Field label="作成ラベル">
-                    <input value={remittanceTemplate.text.createdAtSuffix} onChange={(e) => updateRemittanceText('createdAtSuffix', e.target.value)} />
+                    <input value={activeRemittanceTemplate.text.createdAtSuffix} onChange={(e) => updateRemittanceText('createdAtSuffix', e.target.value)} />
                   </Field>
                   <Field label="期間テンプレート">
-                    <input value={remittanceTemplate.text.rangeTemplate} onChange={(e) => updateRemittanceText('rangeTemplate', e.target.value)} />
+                    <input value={activeRemittanceTemplate.text.rangeTemplate} onChange={(e) => updateRemittanceText('rangeTemplate', e.target.value)} />
                   </Field>
                   <Field label="空欄メッセージ">
-                    <input value={remittanceTemplate.text.emptyLabel} onChange={(e) => updateRemittanceText('emptyLabel', e.target.value)} />
+                    <input value={activeRemittanceTemplate.text.emptyLabel} onChange={(e) => updateRemittanceText('emptyLabel', e.target.value)} />
                   </Field>
                 </div>
               </section>
@@ -442,23 +484,23 @@ export function App() {
               <section className="section">
                 <div className="section-title">レイアウト</div>
                 <div className="grid">
-                  <NumberField label="外側上余白 (mm)" value={remittanceTemplate.layout.contentPaddingTopMm} onChange={(v) => updateRemittanceLayout('contentPaddingTopMm', v)} />
-                  <NumberField label="外側左右余白 (mm)" value={remittanceTemplate.layout.contentPaddingSideMm} onChange={(v) => updateRemittanceLayout('contentPaddingSideMm', v)} />
-                  <NumberField label="上下シフト (mm)" value={remittanceTemplate.layout.halfShiftMm} onChange={(v) => updateRemittanceLayout('halfShiftMm', v)} />
-                  <NumberField label="枠の高さ (mm)" value={remittanceTemplate.layout.frameHeightMm} onChange={(v) => updateRemittanceLayout('frameHeightMm', v)} />
-                  <NumberField label="枠内余白 (mm)" value={remittanceTemplate.layout.framePaddingMm} onChange={(v) => updateRemittanceLayout('framePaddingMm', v)} />
-                  <NumberField label="枠内下余白 (mm)" value={remittanceTemplate.layout.framePaddingBottomMm} onChange={(v) => updateRemittanceLayout('framePaddingBottomMm', v)} />
-                  <NumberField label="タイトル文字 (px)" value={remittanceTemplate.layout.titleFontPx} onChange={(v) => updateRemittanceLayout('titleFontPx', v)} />
-                  <NumberField label="メタ文字 (px)" value={remittanceTemplate.layout.metaFontPx} onChange={(v) => updateRemittanceLayout('metaFontPx', v)} />
-                  <NumberField label="小見出し (px)" value={remittanceTemplate.layout.subFontPx} onChange={(v) => updateRemittanceLayout('subFontPx', v)} />
-                  <NumberField label="表文字 (px)" value={remittanceTemplate.layout.tableFontPx} onChange={(v) => updateRemittanceLayout('tableFontPx', v)} />
-                  <NumberField label="合計文字 (px)" value={remittanceTemplate.layout.totalFontPx} onChange={(v) => updateRemittanceLayout('totalFontPx', v)} />
-                  <NumberField label="フッター文字 (px)" value={remittanceTemplate.layout.footerFontPx} onChange={(v) => updateRemittanceLayout('footerFontPx', v)} />
-                  <NumberField label="署名文字 (px)" value={remittanceTemplate.layout.signatureFontPx} onChange={(v) => updateRemittanceLayout('signatureFontPx', v)} />
-                  <NumberField label="署名枠 (mm)" value={remittanceTemplate.layout.signatureBoxMm} onChange={(v) => updateRemittanceLayout('signatureBoxMm', v)} />
-                  <NumberField label="線幅 (px)" value={remittanceTemplate.layout.lineWidthPx} onChange={(v) => updateRemittanceLayout('lineWidthPx', v)} />
-                  <NumberField label="表の行余白 (mm)" value={remittanceTemplate.layout.tableRowPaddingMm} onChange={(v) => updateRemittanceLayout('tableRowPaddingMm', v)} />
-                  <NumberField label="QRサイズ (mm)" value={remittanceTemplate.layout.qrSizeMm} onChange={(v) => updateRemittanceLayout('qrSizeMm', v)} />
+                  <NumberField label="外側上余白 (mm)" value={activeRemittanceTemplate.layout.contentPaddingTopMm} onChange={(v) => updateRemittanceLayout('contentPaddingTopMm', v)} />
+                  <NumberField label="外側左右余白 (mm)" value={activeRemittanceTemplate.layout.contentPaddingSideMm} onChange={(v) => updateRemittanceLayout('contentPaddingSideMm', v)} />
+                  <NumberField label="上下シフト (mm)" value={activeRemittanceTemplate.layout.halfShiftMm} onChange={(v) => updateRemittanceLayout('halfShiftMm', v)} />
+                  <NumberField label="枠の高さ (mm)" value={activeRemittanceTemplate.layout.frameHeightMm} onChange={(v) => updateRemittanceLayout('frameHeightMm', v)} />
+                  <NumberField label="枠内余白 (mm)" value={activeRemittanceTemplate.layout.framePaddingMm} onChange={(v) => updateRemittanceLayout('framePaddingMm', v)} />
+                  <NumberField label="枠内下余白 (mm)" value={activeRemittanceTemplate.layout.framePaddingBottomMm} onChange={(v) => updateRemittanceLayout('framePaddingBottomMm', v)} />
+                  <NumberField label="タイトル文字 (px)" value={activeRemittanceTemplate.layout.titleFontPx} onChange={(v) => updateRemittanceLayout('titleFontPx', v)} />
+                  <NumberField label="メタ文字 (px)" value={activeRemittanceTemplate.layout.metaFontPx} onChange={(v) => updateRemittanceLayout('metaFontPx', v)} />
+                  <NumberField label="小見出し (px)" value={activeRemittanceTemplate.layout.subFontPx} onChange={(v) => updateRemittanceLayout('subFontPx', v)} />
+                  <NumberField label="表文字 (px)" value={activeRemittanceTemplate.layout.tableFontPx} onChange={(v) => updateRemittanceLayout('tableFontPx', v)} />
+                  <NumberField label="合計文字 (px)" value={activeRemittanceTemplate.layout.totalFontPx} onChange={(v) => updateRemittanceLayout('totalFontPx', v)} />
+                  <NumberField label="フッター文字 (px)" value={activeRemittanceTemplate.layout.footerFontPx} onChange={(v) => updateRemittanceLayout('footerFontPx', v)} />
+                  <NumberField label="署名文字 (px)" value={activeRemittanceTemplate.layout.signatureFontPx} onChange={(v) => updateRemittanceLayout('signatureFontPx', v)} />
+                  <NumberField label="署名線幅 (mm)" value={activeRemittanceTemplate.layout.signatureBoxMm} onChange={(v) => updateRemittanceLayout('signatureBoxMm', v)} />
+                  <NumberField label="線幅 (px)" value={activeRemittanceTemplate.layout.lineWidthPx} onChange={(v) => updateRemittanceLayout('lineWidthPx', v)} />
+                  <NumberField label="表の行余白 (mm)" value={activeRemittanceTemplate.layout.tableRowPaddingMm} onChange={(v) => updateRemittanceLayout('tableRowPaddingMm', v)} />
+                  <NumberField label="QRサイズ (mm)" value={activeRemittanceTemplate.layout.qrSizeMm} onChange={(v) => updateRemittanceLayout('qrSizeMm', v)} />
                 </div>
               </section>
             </>
@@ -627,7 +669,7 @@ function RemittancePreview({
     '--rem-total-font': `${template.layout.totalFontPx}px`,
     '--rem-footer-font': `${template.layout.footerFontPx}px`,
     '--rem-signature-font': `${template.layout.signatureFontPx}px`,
-    '--rem-signature': `${template.layout.signatureBoxMm}mm`,
+    '--rem-signature-w': `${template.layout.signatureBoxMm}mm`,
     '--rem-line-width': `${template.layout.lineWidthPx}px`,
     '--rem-table-row-pad': `${template.layout.tableRowPaddingMm}mm`,
     '--rem-qr-size': `${template.layout.qrSizeMm}mm`,
@@ -688,6 +730,7 @@ function RemittanceHalf({
   rows: { date: string; cashSales: number }[];
   inverted?: boolean;
 }) {
+  const signatureDateLabel = toReiwa(new Date('2026-01-03'));
   return (
     <section className={`remittance-half${inverted ? ' inverted' : ''}`}>
       <div>
@@ -723,7 +766,10 @@ function RemittanceHalf({
 
       <div className="remittance-footer">
         <div>{createdAtLabel}</div>
-        <div className="remittance-stamp">{template.text.signatureLabel}</div>
+        <div className="remittance-stamp">
+          <div className="remittance-stamp-date">{signatureDateLabel}</div>
+          <div className="remittance-stamp-line">{template.text.signatureLabel}</div>
+        </div>
       </div>
     </section>
   );

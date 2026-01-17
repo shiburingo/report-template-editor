@@ -330,14 +330,23 @@ body {
 }
 
 .remittance-stamp {
-  border: var(--rem-line-width) solid #111827;
-  width: var(--rem-signature);
-  height: var(--rem-signature);
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  gap: 4px;
+  width: var(--rem-signature-w);
+  align-items: flex-start;
+  justify-content: flex-start;
   font-size: var(--rem-signature-font);
   color: #6b7280;
+}
+.remittance-stamp-date {
+  font-weight: 600;
+  color: #111827;
+}
+.remittance-stamp-line {
+  width: 100%;
+  border-bottom: var(--rem-line-width) solid #111827;
+  padding-bottom: 2px;
 }
 
 .remittance-cut-line {
