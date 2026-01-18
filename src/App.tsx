@@ -370,9 +370,14 @@ export function App() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <div>
-          <div className="app-title">帳票テンプレート編集</div>
-          <div className="app-sub">帳票のレイアウトと文言をGUIで調整し、業務アプリに反映します。</div>
+        <div className="app-brand">
+          <a className="app-logo" href="/top/" aria-label="ポータルへ戻る">
+            <img src="/top/title-icon-light.svg" alt="" />
+          </a>
+          <div>
+            <div className="app-title">帳票テンプレート編集</div>
+            <div className="app-sub">帳票のレイアウトと文言をGUIで調整し、業務アプリに反映します。</div>
+          </div>
         </div>
         <div className="app-actions">
           <button className="btn ghost" type="button" onClick={loadFromServer} disabled={busy}>読み込み</button>

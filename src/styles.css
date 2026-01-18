@@ -37,6 +37,35 @@ body {
   backdrop-filter: blur(12px);
 }
 
+.app-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.app-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: #e8f1ff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 20px rgba(30, 64, 175, 0.2);
+  transition: transform 0.2s ease;
+}
+
+.app-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.app-logo:hover {
+  transform: translateY(-1px);
+}
+
 .app-title {
   font-size: 22px;
   font-weight: 700;
@@ -88,7 +117,7 @@ body {
 .app-main {
   flex: 1;
   display: grid;
-  grid-template-columns: 240px minmax(320px, 1.2fr) minmax(320px, 1fr);
+  grid-template-columns: 300px minmax(320px, 1.2fr) minmax(320px, 1fr);
   gap: 18px;
   padding: 24px clamp(18px, 3vw, 40px) 40px;
 }
@@ -117,15 +146,15 @@ body {
 }
 
 .list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
 }
 
 .list-item {
   border: 1px solid var(--border);
   background: #f8f6f0;
-  padding: 12px 14px;
+  padding: 10px 12px;
   border-radius: 14px;
   text-align: left;
   cursor: pointer;
@@ -139,6 +168,7 @@ body {
 
 .list-title {
   font-weight: 600;
+  font-size: 13px;
 }
 
 .list-meta {
@@ -175,9 +205,11 @@ body {
   width: 100%;
   display: flex;
   justify-content: center;
+  align-items: flex-start;
   background: #f2f2eb;
   border-radius: 16px;
   padding: 20px;
+  overflow: auto;
 }
 
 .editor .status {
