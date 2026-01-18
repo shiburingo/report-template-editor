@@ -122,6 +122,22 @@ body {
   padding: 24px clamp(18px, 3vw, 40px) 40px;
 }
 
+@media (max-width: 1280px) {
+  .app-main {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar,
+  .preview,
+  .editor {
+    min-width: 0;
+  }
+
+  .preview-wrap {
+    padding: 16px;
+  }
+}
+
 .panel {
   background: var(--panel);
   border-radius: 20px;
