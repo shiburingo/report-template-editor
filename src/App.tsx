@@ -1,18 +1,27 @@
 import { useMemo, useState } from 'react';
+import type { CSSProperties } from 'react';
 import {
   DEFAULT_FV_YEAR_COMPARISON_TEMPLATE,
   DEFAULT_SALES_DAILY_TEMPLATE,
   DEFAULT_REMITTANCE_TEMPLATE,
   DEFAULT_REMITTANCE_AR_TEMPLATE,
+  DEFAULT_AR_INVOICE_SETTINGS,
+  DEFAULT_AR_DELIVERY_NOTE_SETTINGS,
   FV_YEAR_COMPARISON_TEMPLATE_KEY,
   SALES_DAILY_TEMPLATE_KEY,
   REMITTANCE_AR_TEMPLATE_KEY,
+  AR_INVOICE_SETTINGS_KEY,
+  AR_DELIVERY_NOTE_SETTINGS_KEY,
+  normalizeArDeliveryNoteSettings,
+  normalizeArInvoiceSettings,
   normalizeForeignVisitorTemplate,
   normalizeRemittanceArTemplate,
   normalizeRemittanceTemplate,
   normalizeSalesDailyTemplate,
   REMITTANCE_TEMPLATE_KEY,
   type ForeignVisitorYearComparisonTemplate,
+  type ArDeliveryNoteSettings,
+  type ArInvoiceSettings,
   type SalesDailyTemplate,
   type RemittanceTemplate,
 } from './template';
@@ -22,6 +31,8 @@ const TEMPLATE_LIST = [
   { id: 'remittance-ar', name: '売掛金納付書', key: REMITTANCE_AR_TEMPLATE_KEY },
   { id: 'sales-daily', name: '売上日報', key: SALES_DAILY_TEMPLATE_KEY },
   { id: 'fv-year-comparison', name: 'インバウンド年別比較', key: FV_YEAR_COMPARISON_TEMPLATE_KEY },
+  { id: 'ar-invoice', name: '請求書（売掛管理）', key: AR_INVOICE_SETTINGS_KEY },
+  { id: 'ar-delivery', name: '納品書（売掛管理）', key: AR_DELIVERY_NOTE_SETTINGS_KEY },
 ];
 
 const sampleRows = [
@@ -112,6 +123,15 @@ const getForeignVisitorApiBase = () => {
     : '';
 };
 
+const getAccountsReceivableApiBase = () => {
+  const env = (import.meta as any).env?.VITE_AR_SETTINGS_API_BASE as string | undefined;
+  if (env && env.trim()) return env.trim();
+  if (typeof window === 'undefined') return '';
+  return window.location.pathname.startsWith('/report-template-editor/')
+    ? '/accounts-receivable-api'
+    : '';
+};
+
 const loadLocalRemittanceTemplate = () => {
   try {
     const raw = localStorage.getItem(REMITTANCE_TEMPLATE_KEY);
@@ -152,6 +172,26 @@ const loadLocalForeignVisitorTemplate = () => {
   }
 };
 
+const loadLocalArInvoiceSettings = () => {
+  try {
+    const raw = localStorage.getItem(AR_INVOICE_SETTINGS_KEY);
+    if (!raw) return DEFAULT_AR_INVOICE_SETTINGS;
+    return normalizeArInvoiceSettings(JSON.parse(raw));
+  } catch {
+    return DEFAULT_AR_INVOICE_SETTINGS;
+  }
+};
+
+const loadLocalArDeliverySettings = () => {
+  try {
+    const raw = localStorage.getItem(AR_DELIVERY_NOTE_SETTINGS_KEY);
+    if (!raw) return DEFAULT_AR_DELIVERY_NOTE_SETTINGS;
+    return normalizeArDeliveryNoteSettings(JSON.parse(raw));
+  } catch {
+    return DEFAULT_AR_DELIVERY_NOTE_SETTINGS;
+  }
+};
+
 const saveLocalRemittanceTemplate = (template: RemittanceTemplate) => {
   localStorage.setItem(REMITTANCE_TEMPLATE_KEY, JSON.stringify(template));
 };
@@ -168,6 +208,14 @@ const saveLocalForeignVisitorTemplate = (template: ForeignVisitorYearComparisonT
   localStorage.setItem(FV_YEAR_COMPARISON_TEMPLATE_KEY, JSON.stringify(template));
 };
 
+const saveLocalArInvoiceSettings = (settings: ArInvoiceSettings) => {
+  localStorage.setItem(AR_INVOICE_SETTINGS_KEY, JSON.stringify(settings));
+};
+
+const saveLocalArDeliverySettings = (settings: ArDeliveryNoteSettings) => {
+  localStorage.setItem(AR_DELIVERY_NOTE_SETTINGS_KEY, JSON.stringify(settings));
+};
+
 export function App() {
   const [selectedTemplateId, setSelectedTemplateId] = useState(TEMPLATE_LIST[0].id);
   const [remittanceTemplate, setRemittanceTemplate] = useState<RemittanceTemplate>(() => loadLocalRemittanceTemplate());
@@ -176,18 +224,26 @@ export function App() {
   const [salesDailyTemplate, setSalesDailyTemplate] = useState<SalesDailyTemplate>(() => loadLocalSalesDailyTemplate());
   const [foreignVisitorTemplate, setForeignVisitorTemplate] =
     useState<ForeignVisitorYearComparisonTemplate>(() => loadLocalForeignVisitorTemplate());
+  const [arInvoiceSettings, setArInvoiceSettings] = useState<ArInvoiceSettings>(() => loadLocalArInvoiceSettings());
+  const [arDeliverySettings, setArDeliverySettings] =
+    useState<ArDeliveryNoteSettings>(() => loadLocalArDeliverySettings());
   const [status, setStatus] = useState<string>('');
   const [busy, setBusy] = useState(false);
 
   const apiBase = useMemo(() => getApiBase(), []);
   const fvApiBase = useMemo(() => getForeignVisitorApiBase(), []);
+  const arApiBase = useMemo(() => getAccountsReceivableApiBase(), []);
   const isRemittanceSales = selectedTemplateId === 'remittance-slip';
   const isRemittanceAr = selectedTemplateId === 'remittance-ar';
   const isRemittance = isRemittanceSales || isRemittanceAr;
   const isSalesDaily = selectedTemplateId === 'sales-daily';
   const isForeignVisitor = selectedTemplateId === 'fv-year-comparison';
+  const isArInvoice = selectedTemplateId === 'ar-invoice';
+  const isArDelivery = selectedTemplateId === 'ar-delivery';
+  const isArSettings = isArInvoice || isArDelivery;
   const activeTemplateMeta = TEMPLATE_LIST.find((item) => item.id === selectedTemplateId);
   const currentApiBase = isForeignVisitor ? fvApiBase : apiBase;
+  const currentSettingsApiBase = isArSettings ? arApiBase : currentApiBase;
 
   const activeRemittanceTemplate = isRemittanceAr ? remittanceArTemplate : remittanceTemplate;
   const remittanceStart = isRemittanceAr ? toReiwaMonth(new Date('2026-01-01')) : toReiwa(new Date('2026-01-01'));
@@ -217,6 +273,16 @@ export function App() {
   const applyForeignVisitorTemplate = (next: ForeignVisitorYearComparisonTemplate) => {
     setForeignVisitorTemplate(next);
     saveLocalForeignVisitorTemplate(next);
+  };
+
+  const applyArInvoiceSettings = (next: ArInvoiceSettings) => {
+    setArInvoiceSettings(next);
+    saveLocalArInvoiceSettings(next);
+  };
+
+  const applyArDeliverySettings = (next: ArDeliveryNoteSettings) => {
+    setArDeliverySettings(next);
+    saveLocalArDeliverySettings(next);
   };
 
   const updateRemittanceText = (key: keyof RemittanceTemplate['text'], value: string) => {
@@ -274,47 +340,87 @@ export function App() {
     });
   };
 
+  const updateArInvoice = (key: keyof ArInvoiceSettings, value: string | number | boolean) => {
+    applyArInvoiceSettings({
+      ...arInvoiceSettings,
+      [key]: value,
+    });
+  };
+
+  const updateArDelivery = (key: keyof ArDeliveryNoteSettings, value: string) => {
+    applyArDeliverySettings({
+      ...arDeliverySettings,
+      [key]: value,
+    });
+  };
+
   const loadFromServer = async () => {
-    if (!currentApiBase) {
+    if (!currentSettingsApiBase) {
       setStatus('API未設定のため読み込みできません。');
       return;
     }
     setBusy(true);
     setStatus('サーバーから読み込み中...');
     try {
-      const templateKey = isRemittance
-        ? (isRemittanceAr ? REMITTANCE_AR_TEMPLATE_KEY : REMITTANCE_TEMPLATE_KEY)
-        : isSalesDaily
-        ? SALES_DAILY_TEMPLATE_KEY
-        : FV_YEAR_COMPARISON_TEMPLATE_KEY;
-      const res = await fetch(`${currentApiBase}/api/kv/${encodeURIComponent(templateKey)}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = (await res.json()) as { ok: boolean; value: unknown };
-      if (isRemittance) {
-        if (!json.value) {
-          applyRemittanceTemplate(isRemittanceAr ? DEFAULT_REMITTANCE_AR_TEMPLATE : DEFAULT_REMITTANCE_TEMPLATE);
-          setStatus('サーバーにはテンプレートが未登録でした。既定値を使用します。');
+      if (isArSettings) {
+        const res = await fetch(`${currentSettingsApiBase}/api/device-settings`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = (await res.json()) as { settings?: Record<string, unknown> };
+        const settings = json.settings || {};
+        if (isArInvoice) {
+          const raw = settings[AR_INVOICE_SETTINGS_KEY];
+          if (!raw) {
+            applyArInvoiceSettings(DEFAULT_AR_INVOICE_SETTINGS);
+            setStatus('サーバーには請求書設定が未登録でした。既定値を使用します。');
+          } else {
+            applyArInvoiceSettings(normalizeArInvoiceSettings(raw));
+            setStatus('請求書設定を読み込みました。');
+          }
         } else {
-          applyRemittanceTemplate(
-            isRemittanceAr ? normalizeRemittanceArTemplate(json.value) : normalizeRemittanceTemplate(json.value)
-          );
-          setStatus('サーバーのテンプレートを読み込みました。');
-        }
-      } else if (isSalesDaily) {
-        if (!json.value) {
-          applySalesDailyTemplate(DEFAULT_SALES_DAILY_TEMPLATE);
-          setStatus('サーバーにはテンプレートが未登録でした。既定値を使用します。');
-        } else {
-          applySalesDailyTemplate(normalizeSalesDailyTemplate(json.value));
-          setStatus('サーバーのテンプレートを読み込みました。');
+          const raw = settings[AR_DELIVERY_NOTE_SETTINGS_KEY];
+          if (!raw) {
+            applyArDeliverySettings(DEFAULT_AR_DELIVERY_NOTE_SETTINGS);
+            setStatus('サーバーには納品書設定が未登録でした。既定値を使用します。');
+          } else {
+            applyArDeliverySettings(normalizeArDeliveryNoteSettings(raw));
+            setStatus('納品書設定を読み込みました。');
+          }
         }
       } else {
-        if (!json.value) {
-          applyForeignVisitorTemplate(DEFAULT_FV_YEAR_COMPARISON_TEMPLATE);
-          setStatus('サーバーにはテンプレートが未登録でした。既定値を使用します。');
+        const templateKey = isRemittance
+          ? (isRemittanceAr ? REMITTANCE_AR_TEMPLATE_KEY : REMITTANCE_TEMPLATE_KEY)
+          : isSalesDaily
+          ? SALES_DAILY_TEMPLATE_KEY
+          : FV_YEAR_COMPARISON_TEMPLATE_KEY;
+        const res = await fetch(`${currentSettingsApiBase}/api/kv/${encodeURIComponent(templateKey)}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = (await res.json()) as { ok: boolean; value: unknown };
+        if (isRemittance) {
+          if (!json.value) {
+            applyRemittanceTemplate(isRemittanceAr ? DEFAULT_REMITTANCE_AR_TEMPLATE : DEFAULT_REMITTANCE_TEMPLATE);
+            setStatus('サーバーにはテンプレートが未登録でした。既定値を使用します。');
+          } else {
+            applyRemittanceTemplate(
+              isRemittanceAr ? normalizeRemittanceArTemplate(json.value) : normalizeRemittanceTemplate(json.value)
+            );
+            setStatus('サーバーのテンプレートを読み込みました。');
+          }
+        } else if (isSalesDaily) {
+          if (!json.value) {
+            applySalesDailyTemplate(DEFAULT_SALES_DAILY_TEMPLATE);
+            setStatus('サーバーにはテンプレートが未登録でした。既定値を使用します。');
+          } else {
+            applySalesDailyTemplate(normalizeSalesDailyTemplate(json.value));
+            setStatus('サーバーのテンプレートを読み込みました。');
+          }
         } else {
-          applyForeignVisitorTemplate(normalizeForeignVisitorTemplate(json.value));
-          setStatus('サーバーのテンプレートを読み込みました。');
+          if (!json.value) {
+            applyForeignVisitorTemplate(DEFAULT_FV_YEAR_COMPARISON_TEMPLATE);
+            setStatus('サーバーにはテンプレートが未登録でした。既定値を使用します。');
+          } else {
+            applyForeignVisitorTemplate(normalizeForeignVisitorTemplate(json.value));
+            setStatus('サーバーのテンプレートを読み込みました。');
+          }
         }
       }
     } catch (e: any) {
@@ -325,30 +431,42 @@ export function App() {
   };
 
   const saveToServer = async () => {
-    if (!currentApiBase) {
+    if (!currentSettingsApiBase) {
       setStatus('API未設定のため保存できません。');
       return;
     }
     setBusy(true);
     setStatus('サーバーへ保存中...');
     try {
-      const templateKey = isRemittance
-        ? (isRemittanceAr ? REMITTANCE_AR_TEMPLATE_KEY : REMITTANCE_TEMPLATE_KEY)
-        : isSalesDaily
-        ? SALES_DAILY_TEMPLATE_KEY
-        : FV_YEAR_COMPARISON_TEMPLATE_KEY;
-      const payload = isRemittance
-        ? activeRemittanceTemplate
-        : isSalesDaily
-        ? salesDailyTemplate
-        : foreignVisitorTemplate;
-      const res = await fetch(`${currentApiBase}/api/kv/${encodeURIComponent(templateKey)}`, {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setStatus('サーバーに保存しました。');
+      if (isArSettings) {
+        const payload = isArInvoice ? arInvoiceSettings : arDeliverySettings;
+        const key = isArInvoice ? AR_INVOICE_SETTINGS_KEY : AR_DELIVERY_NOTE_SETTINGS_KEY;
+        const res = await fetch(`${currentSettingsApiBase}/api/device-settings`, {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ settings: { [key]: payload } }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        setStatus('帳票設定を保存しました。');
+      } else {
+        const templateKey = isRemittance
+          ? (isRemittanceAr ? REMITTANCE_AR_TEMPLATE_KEY : REMITTANCE_TEMPLATE_KEY)
+          : isSalesDaily
+          ? SALES_DAILY_TEMPLATE_KEY
+          : FV_YEAR_COMPARISON_TEMPLATE_KEY;
+        const payload = isRemittance
+          ? activeRemittanceTemplate
+          : isSalesDaily
+          ? salesDailyTemplate
+          : foreignVisitorTemplate;
+        const res = await fetch(`${currentSettingsApiBase}/api/kv/${encodeURIComponent(templateKey)}`, {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        setStatus('サーバーに保存しました。');
+      }
     } catch (e: any) {
       setStatus(`保存に失敗しました: ${e?.message ?? String(e)}`);
     } finally {
@@ -357,7 +475,13 @@ export function App() {
   };
 
   const resetTemplate = () => {
-    if (isRemittance) {
+    if (isArSettings) {
+      if (isArInvoice) {
+        applyArInvoiceSettings(DEFAULT_AR_INVOICE_SETTINGS);
+      } else {
+        applyArDeliverySettings(DEFAULT_AR_DELIVERY_NOTE_SETTINGS);
+      }
+    } else if (isRemittance) {
       applyRemittanceTemplate(isRemittanceAr ? DEFAULT_REMITTANCE_AR_TEMPLATE : DEFAULT_REMITTANCE_TEMPLATE);
     } else if (isSalesDaily) {
       applySalesDailyTemplate(DEFAULT_SALES_DAILY_TEMPLATE);
@@ -403,16 +527,20 @@ export function App() {
                     ? 'sales-management-system'
                     : item.id === 'sales-daily'
                     ? 'sales-report'
-                    : 'foreign-visitor-system'}
+                    : item.id === 'fv-year-comparison'
+                    ? 'foreign-visitor-system'
+                    : 'accounts-receivable'}
                 </div>
               </button>
             ))}
           </div>
           <div className="helper">
             <div className="helper-title">接続先</div>
-            <div className="helper-value">{currentApiBase || '未設定'}</div>
+            <div className="helper-value">{currentSettingsApiBase || '未設定'}</div>
             <div className="helper-note">
-              {isForeignVisitor
+              {isArSettings
+                ? '保存は accounts-receivable の設定に反映されます。'
+                : isForeignVisitor
                 ? '保存は foreign-visitor-system のKVに反映されます。'
                 : '保存は mine-trout-cash のKVに反映されます。'}
             </div>
@@ -422,7 +550,11 @@ export function App() {
         <section className="panel preview">
           <div className="panel-title">プレビュー</div>
           <div className="preview-wrap">
-            {isRemittance ? (
+            {isArInvoice ? (
+              <InvoicePreview settings={arInvoiceSettings} />
+            ) : isArDelivery ? (
+              <DeliveryNotePreview settings={arDeliverySettings} />
+            ) : isRemittance ? (
               <RemittancePreview
                 template={activeRemittanceTemplate}
                 rangeLabel={rangeLabel}
@@ -445,7 +577,98 @@ export function App() {
           <div className="panel-title">{activeTemplateMeta?.name ?? '編集パネル'}</div>
           <div className="status">{status || '変更は自動でローカル保存されます。'}</div>
 
-          {isRemittance ? (
+          {isArInvoice ? (
+            <>
+              <section className="section">
+                <div className="section-title">請求書の体裁</div>
+                <div className="grid">
+                  <Field label="タイトル">
+                    <input value={arInvoiceSettings.title} onChange={(e) => updateArInvoice('title', e.target.value)} />
+                  </Field>
+                  <Field label="ご請求金額ラベル">
+                    <input
+                      value={arInvoiceSettings.amountLabel}
+                      onChange={(e) => updateArInvoice('amountLabel', e.target.value)}
+                    />
+                  </Field>
+                  <Field label="件名プレフィックス">
+                    <input
+                      value={arInvoiceSettings.subjectPrefix}
+                      onChange={(e) => updateArInvoice('subjectPrefix', e.target.value)}
+                    />
+                  </Field>
+                  <NumberField label="タイトル文字サイズ" value={arInvoiceSettings.titleFontSize} onChange={(v) => updateArInvoice('titleFontSize', v)} />
+                  <NumberField label="本文文字サイズ" value={arInvoiceSettings.bodyFontSize} onChange={(v) => updateArInvoice('bodyFontSize', v)} />
+                  <NumberField label="金額文字サイズ" value={arInvoiceSettings.amountFontSize} onChange={(v) => updateArInvoice('amountFontSize', v)} />
+                  <NumberField label="上余白(mm)" value={arInvoiceSettings.topMarginMm} onChange={(v) => updateArInvoice('topMarginMm', v)} />
+                  <NumberField label="左右余白(mm)" value={arInvoiceSettings.sideMarginMm} onChange={(v) => updateArInvoice('sideMarginMm', v)} />
+                  <NumberField label="罫線太さ" value={arInvoiceSettings.lineWidth} onChange={(v) => updateArInvoice('lineWidth', v)} />
+                  <NumberField label="表ヘッダー高さ(mm)" value={arInvoiceSettings.headerHeightMm} onChange={(v) => updateArInvoice('headerHeightMm', v)} />
+                  <NumberField label="表行の高さ(mm)" value={arInvoiceSettings.rowHeightMm} onChange={(v) => updateArInvoice('rowHeightMm', v)} />
+                  <label className="field checkbox">
+                    <span>振込先を表示</span>
+                    <input
+                      type="checkbox"
+                      checked={arInvoiceSettings.showBank}
+                      onChange={(e) => updateArInvoice('showBank', e.target.checked)}
+                    />
+                  </label>
+                  <label className="field checkbox">
+                    <span>備考を表示</span>
+                    <input
+                      type="checkbox"
+                      checked={arInvoiceSettings.showNotes}
+                      onChange={(e) => updateArInvoice('showNotes', e.target.checked)}
+                    />
+                  </label>
+                  <Field label="備考本文（複数行）">
+                    <textarea
+                      rows={4}
+                      value={arInvoiceSettings.notesText}
+                      placeholder="空欄の場合は既定文を表示します。"
+                      onChange={(e) => updateArInvoice('notesText', e.target.value)}
+                    />
+                  </Field>
+                </div>
+              </section>
+            </>
+          ) : isArDelivery ? (
+            <>
+              <section className="section">
+                <div className="section-title">納品書の体裁</div>
+                <div className="grid">
+                  <Field label="タイトル">
+                    <input value={arDeliverySettings.title} onChange={(e) => updateArDelivery('title', e.target.value)} />
+                  </Field>
+                  <Field label="発行者名">
+                    <input
+                      value={arDeliverySettings.issuerName}
+                      onChange={(e) => updateArDelivery('issuerName', e.target.value)}
+                    />
+                  </Field>
+                  <Field label="発行者電話">
+                    <input
+                      value={arDeliverySettings.issuerPhone}
+                      onChange={(e) => updateArDelivery('issuerPhone', e.target.value)}
+                    />
+                  </Field>
+                  <Field label="発行者住所">
+                    <input
+                      value={arDeliverySettings.issuerAddress}
+                      onChange={(e) => updateArDelivery('issuerAddress', e.target.value)}
+                    />
+                  </Field>
+                  <Field label="フッターメモ">
+                    <input
+                      value={arDeliverySettings.footerNote}
+                      placeholder="例: お問い合わせはお電話にてお願いします。"
+                      onChange={(e) => updateArDelivery('footerNote', e.target.value)}
+                    />
+                  </Field>
+                </div>
+              </section>
+            </>
+          ) : isRemittance ? (
             <>
               <section className="section">
                 <div className="section-title">文言</div>
@@ -678,7 +901,7 @@ function RemittancePreview({
     '--rem-line-width': `${template.layout.lineWidthPx}px`,
     '--rem-table-row-pad': `${template.layout.tableRowPaddingMm}mm`,
     '--rem-qr-size': `${template.layout.qrSizeMm}mm`,
-  } as React.CSSProperties;
+  } as CSSProperties;
 
   const total = rows.reduce((sum, row) => sum + row.cashSales, 0);
 
@@ -1021,6 +1244,86 @@ function ForeignVisitorPreview({
               <span>160</span>
             </div>
           ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InvoicePreview({ settings }: { settings: ArInvoiceSettings }) {
+  const styleVars = {
+    '--inv-title-size': `${settings.titleFontSize}px`,
+    '--inv-body-size': `${settings.bodyFontSize}px`,
+    '--inv-amount-size': `${settings.amountFontSize}px`,
+    '--inv-top-margin': `${settings.topMarginMm}mm`,
+    '--inv-side-margin': `${settings.sideMarginMm}mm`,
+    '--inv-line-width': `${settings.lineWidth}px`,
+    '--inv-header-height': `${settings.headerHeightMm}mm`,
+    '--inv-row-height': `${settings.rowHeightMm}mm`,
+  } as React.CSSProperties;
+
+  return (
+    <div className="invoice-preview-page" style={styleVars}>
+      <div className="invoice-preview-content">
+        <div className="invoice-preview-title">{settings.title}</div>
+        <div className="invoice-preview-meta">
+          <div>2026年1月分</div>
+          <div>{settings.subjectPrefix}：2025/12/21〜2026/01/20</div>
+        </div>
+        <div className="invoice-preview-amount">
+          <span>{settings.amountLabel}</span>
+          <strong>¥123,450</strong>
+        </div>
+        <div className="invoice-preview-table">
+          <div className="invoice-preview-table-header">
+            <div>日付</div>
+            <div>内容</div>
+            <div className="right">金額</div>
+          </div>
+          {['2026/01/05', '2026/01/10', '2026/01/15'].map((date) => (
+            <div key={date} className="invoice-preview-table-row">
+              <div>{date}</div>
+              <div>売掛取引（鱒）</div>
+              <div className="right">¥41,150</div>
+            </div>
+          ))}
+        </div>
+        {settings.showBank ? (
+          <div className="invoice-preview-bank">
+            振込先：山口銀行 美祢支店 普通 1234567 ミネシヨウソンジョウ
+          </div>
+        ) : null}
+        {settings.showNotes ? (
+          <div className="invoice-preview-notes">{settings.notesText || '備考：お支払いは翌月末までにお願いします。'}</div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function DeliveryNotePreview({ settings }: { settings: ArDeliveryNoteSettings }) {
+  return (
+    <div className="delivery-preview-page">
+      <div className="delivery-preview-content">
+        <div className="delivery-preview-title">{settings.title}</div>
+        <div className="delivery-preview-meta">納品日：2026/01/20</div>
+        <div className="delivery-preview-row">
+          <span>宛先</span>
+          <strong>安富屋 御中</strong>
+        </div>
+        <div className="delivery-preview-row">
+          <span>品目</span>
+          <strong>鱒（大）</strong>
+        </div>
+        <div className="delivery-preview-row">
+          <span>数量</span>
+          <strong>12尾</strong>
+        </div>
+        <div className="delivery-preview-footer">
+          <div>{settings.issuerName || '美祢市養鱒場'}</div>
+          <div>{settings.issuerAddress || '山口県美祢市...'}</div>
+          <div>{settings.issuerPhone || '0837-00-0000'}</div>
+          {settings.footerNote ? <div>{settings.footerNote}</div> : null}
         </div>
       </div>
     </div>

@@ -2,6 +2,8 @@ export const REMITTANCE_TEMPLATE_KEY = 'reportTemplates.remittance';
 export const REMITTANCE_AR_TEMPLATE_KEY = 'reportTemplates.remittanceAr';
 export const SALES_DAILY_TEMPLATE_KEY = 'reportTemplates.salesDaily';
 export const FV_YEAR_COMPARISON_TEMPLATE_KEY = 'reportTemplates.foreignVisitorYearComparison';
+export const AR_INVOICE_SETTINGS_KEY = 'ar.invoiceSettings.v1';
+export const AR_DELIVERY_NOTE_SETTINGS_KEY = 'ar.deliveryNoteSettings.v1';
 
 export type RemittanceTemplate = {
   version: 1;
@@ -93,6 +95,33 @@ export type ForeignVisitorYearComparisonTemplate = {
     detailFontPx: number;
     detailPaddingPx: number;
   };
+};
+
+export type ArInvoiceSettings = {
+  version: 1;
+  title: string;
+  amountLabel: string;
+  subjectPrefix: string;
+  showBank: boolean;
+  showNotes: boolean;
+  notesText: string;
+  titleFontSize: number;
+  bodyFontSize: number;
+  amountFontSize: number;
+  headerHeightMm: number;
+  rowHeightMm: number;
+  topMarginMm: number;
+  sideMarginMm: number;
+  lineWidth: number;
+};
+
+export type ArDeliveryNoteSettings = {
+  version: 1;
+  title: string;
+  issuerName: string;
+  issuerAddress: string;
+  issuerPhone: string;
+  footerNote: string;
 };
 
 export const DEFAULT_REMITTANCE_TEMPLATE: RemittanceTemplate = {
@@ -221,6 +250,33 @@ export const DEFAULT_FV_YEAR_COMPARISON_TEMPLATE: ForeignVisitorYearComparisonTe
     detailFontPx: 10,
     detailPaddingPx: 5,
   },
+};
+
+export const DEFAULT_AR_INVOICE_SETTINGS: ArInvoiceSettings = {
+  version: 1,
+  title: '請求書',
+  amountLabel: 'ご請求金額(税込)：',
+  subjectPrefix: '請求期間',
+  showBank: true,
+  showNotes: true,
+  notesText: '',
+  titleFontSize: 18,
+  bodyFontSize: 9,
+  amountFontSize: 14,
+  headerHeightMm: 7,
+  rowHeightMm: 6,
+  topMarginMm: 14,
+  sideMarginMm: 16,
+  lineWidth: 1,
+};
+
+export const DEFAULT_AR_DELIVERY_NOTE_SETTINGS: ArDeliveryNoteSettings = {
+  version: 1,
+  title: '納品書',
+  issuerName: '',
+  issuerAddress: '',
+  issuerPhone: '',
+  footerNote: '',
 };
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
@@ -375,5 +431,59 @@ export const normalizeForeignVisitorTemplate = (input: unknown): ForeignVisitorY
       detailFontPx: Number(layout.detailFontPx ?? DEFAULT_FV_YEAR_COMPARISON_TEMPLATE.layout.detailFontPx),
       detailPaddingPx: Number(layout.detailPaddingPx ?? DEFAULT_FV_YEAR_COMPARISON_TEMPLATE.layout.detailPaddingPx),
     },
+  };
+};
+
+const clampNumber = (value: unknown, fallback: number, min: number, max: number) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  if (parsed < min) return min;
+  if (parsed > max) return max;
+  return parsed;
+};
+
+export const normalizeArInvoiceSettings = (input: unknown): ArInvoiceSettings => {
+  if (!isObject(input)) return DEFAULT_AR_INVOICE_SETTINGS;
+  const title = String(input.title ?? DEFAULT_AR_INVOICE_SETTINGS.title).trim() || DEFAULT_AR_INVOICE_SETTINGS.title;
+  const amountLabel =
+    String(input.amountLabel ?? DEFAULT_AR_INVOICE_SETTINGS.amountLabel).trim() || DEFAULT_AR_INVOICE_SETTINGS.amountLabel;
+  const subjectPrefix =
+    String(input.subjectPrefix ?? DEFAULT_AR_INVOICE_SETTINGS.subjectPrefix).trim() || DEFAULT_AR_INVOICE_SETTINGS.subjectPrefix;
+  const showBank = input.showBank === false ? false : true;
+  const showNotes = input.showNotes === false ? false : true;
+  const notesText = String(input.notesText ?? '').trim();
+  return {
+    version: 1,
+    title,
+    amountLabel,
+    subjectPrefix,
+    showBank,
+    showNotes,
+    notesText,
+    titleFontSize: Math.round(clampNumber(input.titleFontSize, DEFAULT_AR_INVOICE_SETTINGS.titleFontSize, 10, 32)),
+    bodyFontSize: Math.round(clampNumber(input.bodyFontSize, DEFAULT_AR_INVOICE_SETTINGS.bodyFontSize, 7, 14)),
+    amountFontSize: Math.round(clampNumber(input.amountFontSize, DEFAULT_AR_INVOICE_SETTINGS.amountFontSize, 10, 22)),
+    headerHeightMm: clampNumber(input.headerHeightMm, DEFAULT_AR_INVOICE_SETTINGS.headerHeightMm, 5, 12),
+    rowHeightMm: clampNumber(input.rowHeightMm, DEFAULT_AR_INVOICE_SETTINGS.rowHeightMm, 4.5, 10),
+    topMarginMm: clampNumber(input.topMarginMm, DEFAULT_AR_INVOICE_SETTINGS.topMarginMm, 8, 30),
+    sideMarginMm: clampNumber(input.sideMarginMm, DEFAULT_AR_INVOICE_SETTINGS.sideMarginMm, 10, 30),
+    lineWidth: clampNumber(input.lineWidth, DEFAULT_AR_INVOICE_SETTINGS.lineWidth, 0.5, 2.5),
+  };
+};
+
+export const normalizeArDeliveryNoteSettings = (input: unknown): ArDeliveryNoteSettings => {
+  if (!isObject(input)) return DEFAULT_AR_DELIVERY_NOTE_SETTINGS;
+  const title = String(input.title ?? DEFAULT_AR_DELIVERY_NOTE_SETTINGS.title).trim() || DEFAULT_AR_DELIVERY_NOTE_SETTINGS.title;
+  const issuerName = String(input.issuerName ?? '').trim();
+  const issuerAddress = String(input.issuerAddress ?? '').trim();
+  const issuerPhone = String(input.issuerPhone ?? '').trim();
+  const footerNote = String(input.footerNote ?? '').trim();
+  return {
+    version: 1,
+    title,
+    issuerName,
+    issuerAddress,
+    issuerPhone,
+    footerNote,
   };
 };

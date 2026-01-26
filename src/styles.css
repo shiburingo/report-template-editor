@@ -273,6 +273,155 @@ body {
   background: #fff;
 }
 
+.field textarea {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--ink);
+  background: #fff;
+  resize: vertical;
+}
+
+.field.checkbox {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 2px;
+}
+
+.field.checkbox input {
+  width: 16px;
+  height: 16px;
+}
+
+.invoice-preview-page {
+  width: 210mm;
+  height: 297mm;
+  background: #fff;
+  position: relative;
+  font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+  color: #111827;
+  transform: scale(0.75);
+  transform-origin: top center;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.15);
+}
+
+.invoice-preview-content {
+  position: absolute;
+  inset: 0;
+  padding: var(--inv-top-margin) var(--inv-side-margin);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: var(--inv-body-size);
+}
+
+.invoice-preview-title {
+  font-size: var(--inv-title-size);
+  font-weight: 700;
+}
+
+.invoice-preview-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--inv-body-size);
+  color: #4b5563;
+}
+
+.invoice-preview-amount {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: var(--inv-body-size);
+}
+
+.invoice-preview-amount strong {
+  font-size: var(--inv-amount-size);
+}
+
+.invoice-preview-table {
+  border: var(--inv-line-width) solid #111827;
+}
+
+.invoice-preview-table-header,
+.invoice-preview-table-row {
+  display: grid;
+  grid-template-columns: 80px 1fr 100px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+}
+
+.invoice-preview-table-header {
+  height: var(--inv-header-height);
+  background: #f3f4f6;
+  font-weight: 600;
+}
+
+.invoice-preview-table-row {
+  height: var(--inv-row-height);
+  border-top: var(--inv-line-width) solid #e5e7eb;
+}
+
+.invoice-preview-table-row .right,
+.invoice-preview-table-header .right {
+  text-align: right;
+}
+
+.invoice-preview-bank,
+.invoice-preview-notes {
+  font-size: var(--inv-body-size);
+  color: #374151;
+}
+
+.delivery-preview-page {
+  width: 210mm;
+  height: 297mm;
+  background: #fff;
+  position: relative;
+  font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+  color: #111827;
+  transform: scale(0.75);
+  transform-origin: top center;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.15);
+}
+
+.delivery-preview-content {
+  position: absolute;
+  inset: 0;
+  padding: 16mm;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.delivery-preview-title {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.delivery-preview-meta {
+  color: #6b7280;
+}
+
+.delivery-preview-row {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px dashed #e5e7eb;
+  padding-bottom: 4px;
+}
+
+.delivery-preview-footer {
+  margin-top: auto;
+  font-size: 11px;
+  color: #4b5563;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .remittance-page {
   width: 210mm;
   height: 297mm;
