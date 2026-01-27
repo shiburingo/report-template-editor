@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import {
   DEFAULT_FV_YEAR_COMPARISON_TEMPLATE,
@@ -132,6 +132,18 @@ const getAccountsReceivableApiBase = () => {
     : '';
 };
 
+const joinBase = (base: string, path: string) => {
+  if (!base) return path;
+  return `${base.replace(/\/$/, '')}${path}`;
+};
+
+const toYmd = (date: Date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 const loadLocalRemittanceTemplate = () => {
   try {
     const raw = localStorage.getItem(REMITTANCE_TEMPLATE_KEY);
@@ -227,6 +239,22 @@ export function App() {
   const [arInvoiceSettings, setArInvoiceSettings] = useState<ArInvoiceSettings>(() => loadLocalArInvoiceSettings());
   const [arDeliverySettings, setArDeliverySettings] =
     useState<ArDeliveryNoteSettings>(() => loadLocalArDeliverySettings());
+  const [latestInvoice, setLatestInvoice] = useState<{
+    id: number;
+    invoiceNo: string;
+    customerName: string;
+    periodFrom: string;
+    periodTo: string;
+  } | null>(null);
+  const [latestDeliveryNote, setLatestDeliveryNote] = useState<{
+    id: number;
+    customerName: string;
+    saleDate: string;
+    productName?: string | null;
+  } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewNonce, setPreviewNonce] = useState(0);
   const [status, setStatus] = useState<string>('');
   const [busy, setBusy] = useState(false);
 
@@ -354,6 +382,62 @@ export function App() {
     });
   };
 
+  const refreshLatestArPreviews = async () => {
+    if (!arApiBase) {
+      setPreviewError('accounts-receivable APIが未設定です。');
+      return;
+    }
+    setPreviewLoading(true);
+    setPreviewError(null);
+    try {
+      const invRes = await fetch(joinBase(arApiBase, '/api/invoices'), { credentials: 'include' });
+      if (!invRes.ok) throw new Error(`請求書取得: HTTP ${invRes.status}`);
+      const invJson = (await invRes.json()) as { invoices?: any[] };
+      const inv = Array.isArray(invJson.invoices) ? invJson.invoices[0] : null;
+      setLatestInvoice(
+        inv
+          ? {
+              id: Number(inv.id),
+              invoiceNo: String(inv.invoiceNo ?? ''),
+              customerName: String(inv.customerName ?? ''),
+              periodFrom: String(inv.periodFrom ?? ''),
+              periodTo: String(inv.periodTo ?? ''),
+            }
+          : null
+      );
+
+      const today = new Date();
+      const from = new Date();
+      from.setFullYear(today.getFullYear() - 5);
+      const dnRes = await fetch(
+        joinBase(arApiBase, `/api/delivery-notes?from=${toYmd(from)}&to=${toYmd(today)}&limit=1`),
+        { credentials: 'include' }
+      );
+      if (!dnRes.ok) throw new Error(`納品書取得: HTTP ${dnRes.status}`);
+      const dnJson = (await dnRes.json()) as { items?: any[] };
+      const dn = Array.isArray(dnJson.items) ? dnJson.items[0] : null;
+      setLatestDeliveryNote(
+        dn
+          ? {
+              id: Number(dn.id),
+              customerName: String(dn.customerName ?? ''),
+              saleDate: String(dn.saleDate ?? ''),
+              productName: dn.productName ? String(dn.productName) : null,
+            }
+          : null
+      );
+    } catch (e: any) {
+      setPreviewError(e?.message ?? String(e));
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isArSettings) return;
+    void refreshLatestArPreviews();
+  }, [isArSettings, arApiBase]);
+
   const loadFromServer = async () => {
     if (!currentSettingsApiBase) {
       setStatus('API未設定のため読み込みできません。');
@@ -386,6 +470,7 @@ export function App() {
             setStatus('納品書設定を読み込みました。');
           }
         }
+        await refreshLatestArPreviews();
       } else {
         const templateKey = isRemittance
           ? (isRemittanceAr ? REMITTANCE_AR_TEMPLATE_KEY : REMITTANCE_TEMPLATE_KEY)
@@ -447,7 +532,8 @@ export function App() {
           body: JSON.stringify({ settings: { [key]: payload } }),
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        setStatus('帳票設定を保存しました。');
+        setStatus('帳票設定を保存しました。プレビューを更新できます。');
+        setPreviewNonce((prev) => prev + 1);
       } else {
         const templateKey = isRemittance
           ? (isRemittanceAr ? REMITTANCE_AR_TEMPLATE_KEY : REMITTANCE_TEMPLATE_KEY)
@@ -551,9 +637,25 @@ export function App() {
           <div className="panel-title">プレビュー</div>
           <div className="preview-wrap">
             {isArInvoice ? (
-              <InvoicePreview settings={arInvoiceSettings} />
+              <InvoicePreview
+                settings={arInvoiceSettings}
+                latest={latestInvoice}
+                apiBase={arApiBase}
+                loading={previewLoading}
+                error={previewError}
+                nonce={previewNonce}
+                onReload={refreshLatestArPreviews}
+              />
             ) : isArDelivery ? (
-              <DeliveryNotePreview settings={arDeliverySettings} />
+              <DeliveryNotePreview
+                settings={arDeliverySettings}
+                latest={latestDeliveryNote}
+                apiBase={arApiBase}
+                loading={previewLoading}
+                error={previewError}
+                nonce={previewNonce}
+                onReload={refreshLatestArPreviews}
+              />
             ) : isRemittance ? (
               <RemittancePreview
                 template={activeRemittanceTemplate}
@@ -1250,7 +1352,23 @@ function ForeignVisitorPreview({
   );
 }
 
-function InvoicePreview({ settings }: { settings: ArInvoiceSettings }) {
+function InvoicePreview({
+  settings,
+  latest,
+  apiBase,
+  loading,
+  error,
+  nonce,
+  onReload,
+}: {
+  settings: ArInvoiceSettings;
+  latest: { id: number; invoiceNo: string; customerName: string; periodFrom: string; periodTo: string } | null;
+  apiBase: string;
+  loading: boolean;
+  error: string | null;
+  nonce: number;
+  onReload: () => void;
+}) {
   const styleVars = {
     '--inv-title-size': `${settings.titleFontSize}px`,
     '--inv-body-size': `${settings.bodyFontSize}px`,
@@ -1260,72 +1378,69 @@ function InvoicePreview({ settings }: { settings: ArInvoiceSettings }) {
     '--inv-line-width': `${settings.lineWidth}px`,
     '--inv-header-height': `${settings.headerHeightMm}mm`,
     '--inv-row-height': `${settings.rowHeightMm}mm`,
-  } as React.CSSProperties;
+  } as CSSProperties;
+  const pdfUrl = latest ? `${joinBase(apiBase, `/api/invoices/${latest.id}/pdf`)}?t=${nonce}` : '';
 
   return (
     <div className="invoice-preview-page" style={styleVars}>
-      <div className="invoice-preview-content">
-        <div className="invoice-preview-title">{settings.title}</div>
-        <div className="invoice-preview-meta">
-          <div>2026年1月分</div>
-          <div>{settings.subjectPrefix}：2025/12/21〜2026/01/20</div>
-        </div>
-        <div className="invoice-preview-amount">
-          <span>{settings.amountLabel}</span>
-          <strong>¥123,450</strong>
-        </div>
-        <div className="invoice-preview-table">
-          <div className="invoice-preview-table-header">
-            <div>日付</div>
-            <div>内容</div>
-            <div className="right">金額</div>
-          </div>
-          {['2026/01/05', '2026/01/10', '2026/01/15'].map((date) => (
-            <div key={date} className="invoice-preview-table-row">
-              <div>{date}</div>
-              <div>売掛取引（鱒）</div>
-              <div className="right">¥41,150</div>
-            </div>
-          ))}
-        </div>
-        {settings.showBank ? (
-          <div className="invoice-preview-bank">
-            振込先：山口銀行 美祢支店 普通 1234567 ミネシヨウソンジョウ
-          </div>
-        ) : null}
-        {settings.showNotes ? (
-          <div className="invoice-preview-notes">{settings.notesText || '備考：お支払いは翌月末までにお願いします。'}</div>
-        ) : null}
+      <div className="invoice-preview-toolbar">
+        <div className="invoice-preview-title">最新の請求書プレビュー</div>
+        <button type="button" className="btn ghost" onClick={onReload} disabled={loading}>
+          最新帳票を再取得
+        </button>
       </div>
+      {error ? <div className="preview-error">{error}</div> : null}
+      {loading ? <div className="preview-loading">読み込み中...</div> : null}
+      {!loading && !latest ? <div className="preview-empty">請求書が見つかりませんでした。</div> : null}
+      {latest && (
+        <>
+          <div className="preview-meta">
+            {latest.invoiceNo} / {latest.customerName} / {latest.periodFrom}〜{latest.periodTo}
+          </div>
+          <iframe className="preview-iframe" title="請求書PDF" src={pdfUrl} />
+        </>
+      )}
     </div>
   );
 }
 
-function DeliveryNotePreview({ settings }: { settings: ArDeliveryNoteSettings }) {
+function DeliveryNotePreview({
+  settings,
+  latest,
+  apiBase,
+  loading,
+  error,
+  nonce,
+  onReload,
+}: {
+  settings: ArDeliveryNoteSettings;
+  latest: { id: number; customerName: string; saleDate: string; productName?: string | null } | null;
+  apiBase: string;
+  loading: boolean;
+  error: string | null;
+  nonce: number;
+  onReload: () => void;
+}) {
+  const pdfUrl = latest ? `${joinBase(apiBase, `/api/delivery-notes/by-id/${latest.id}/pdf`)}?t=${nonce}` : '';
   return (
     <div className="delivery-preview-page">
-      <div className="delivery-preview-content">
-        <div className="delivery-preview-title">{settings.title}</div>
-        <div className="delivery-preview-meta">納品日：2026/01/20</div>
-        <div className="delivery-preview-row">
-          <span>宛先</span>
-          <strong>安富屋 御中</strong>
-        </div>
-        <div className="delivery-preview-row">
-          <span>品目</span>
-          <strong>鱒（大）</strong>
-        </div>
-        <div className="delivery-preview-row">
-          <span>数量</span>
-          <strong>12尾</strong>
-        </div>
-        <div className="delivery-preview-footer">
-          <div>{settings.issuerName || '美祢市養鱒場'}</div>
-          <div>{settings.issuerAddress || '山口県美祢市...'}</div>
-          <div>{settings.issuerPhone || '0837-00-0000'}</div>
-          {settings.footerNote ? <div>{settings.footerNote}</div> : null}
-        </div>
+      <div className="invoice-preview-toolbar">
+        <div className="invoice-preview-title">最新の納品書プレビュー</div>
+        <button type="button" className="btn ghost" onClick={onReload} disabled={loading}>
+          最新帳票を再取得
+        </button>
       </div>
+      {error ? <div className="preview-error">{error}</div> : null}
+      {loading ? <div className="preview-loading">読み込み中...</div> : null}
+      {!loading && !latest ? <div className="preview-empty">納品書が見つかりませんでした。</div> : null}
+      {latest && (
+        <>
+          <div className="preview-meta">
+            {latest.saleDate} / {latest.customerName} {latest.productName ? `/ ${latest.productName}` : ''}
+          </div>
+          <iframe className="preview-iframe" title="納品書PDF" src={pdfUrl} />
+        </>
+      )}
     </div>
   );
 }
