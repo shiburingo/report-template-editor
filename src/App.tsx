@@ -375,7 +375,7 @@ export function App() {
     });
   };
 
-  const updateArDelivery = (key: keyof ArDeliveryNoteSettings, value: string) => {
+  const updateArDelivery = (key: keyof ArDeliveryNoteSettings, value: string | number) => {
     applyArDeliverySettings({
       ...arDeliverySettings,
       [key]: value,
@@ -767,6 +767,16 @@ export function App() {
                       onChange={(e) => updateArDelivery('footerNote', e.target.value)}
                     />
                   </Field>
+                  <NumberField
+                    label="上余白(mm)"
+                    value={arDeliverySettings.topMarginMm}
+                    onChange={(v) => updateArDelivery('topMarginMm', v)}
+                  />
+                  <NumberField
+                    label="左余白(mm)"
+                    value={arDeliverySettings.leftMarginMm}
+                    onChange={(v) => updateArDelivery('leftMarginMm', v)}
+                  />
                 </div>
               </section>
             </>

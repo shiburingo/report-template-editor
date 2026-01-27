@@ -122,6 +122,8 @@ export type ArDeliveryNoteSettings = {
   issuerAddress: string;
   issuerPhone: string;
   footerNote: string;
+  topMarginMm: number;
+  leftMarginMm: number;
 };
 
 export const DEFAULT_REMITTANCE_TEMPLATE: RemittanceTemplate = {
@@ -277,6 +279,8 @@ export const DEFAULT_AR_DELIVERY_NOTE_SETTINGS: ArDeliveryNoteSettings = {
   issuerAddress: '',
   issuerPhone: '',
   footerNote: '',
+  topMarginMm: 18,
+  leftMarginMm: 18,
 };
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
@@ -485,5 +489,7 @@ export const normalizeArDeliveryNoteSettings = (input: unknown): ArDeliveryNoteS
     issuerAddress,
     issuerPhone,
     footerNote,
+    topMarginMm: clampNumber(input.topMarginMm, DEFAULT_AR_DELIVERY_NOTE_SETTINGS.topMarginMm, 8, 30),
+    leftMarginMm: clampNumber(input.leftMarginMm, DEFAULT_AR_DELIVERY_NOTE_SETTINGS.leftMarginMm, 8, 30),
   };
 };
