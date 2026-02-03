@@ -20,3 +20,8 @@ npm run dev
 - APIベース:
   - `VITE_TEMPLATE_API_BASE`（mine-trout-cash 系）
   - `VITE_FV_TEMPLATE_API_BASE`（foreign-visitor-system / 既定は `/api`）
+
+## 直近の変更（2026-02-04）
+
+- 共通UIパッケージ `mine-troutfarm-ui` を導入（リポジトリに同梱し `file:` 参照）
+- フロントは `@mine-troutfarm/ui/theme.css` を読み込む
